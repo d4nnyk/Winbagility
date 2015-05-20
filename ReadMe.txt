@@ -1,40 +1,25 @@
-========================================================================
-    CONSOLE APPLICATION : NamedPipeProxy Project Overview
-========================================================================
+<pre>
+<b>Winbagility</b>
+At this time it is just another crappy POC. It gives the ability to open debugged 8.1 x64 RAW memory dump "directly" in WinDbg.
+It is useless for the moment, Volatility is better than this !
 
-AppWizard has created this NamedPipeProxy application for you.
+<b>How does it works ?</b>
+A Kd server is implemented wich simulate a debugged VM that received commands thought named pipe.
 
-This file contains a summary of what you will find in each of the files that
-make up your NamedPipeProxy application.
+<b>How to use ?</b>
+1. Create a raw memory dump of 8.1 x64 and place it at "C:\8_1_x64.dmp"
+2. Start the winbagility
+3. Start Windbg and connect it to named pipe "\\.\pipe\client"
 
+<b>Why did I commit this s**t ?</b>
+I wanted to save my work in progress...
 
-NamedPipeProxy.vcxproj
-    This is the main project file for VC++ projects generated using an Application Wizard.
-    It contains information about the version of Visual C++ that generated the file, and
-    information about the platforms, configurations, and project features selected with the
-    Application Wizard.
+<b>TODO:</b>
+1. Open undebugged 8.1 x64 raw memory dump
+2. Manage multiple CPU support
+3. Integrate it in virtualbox
+4. Checks, tests, optimisations...
 
-NamedPipeProxy.vcxproj.filters
-    This is the filters file for VC++ projects generated using an Application Wizard. 
-    It contains information about the association between the files in your project 
-    and the filters. This association is used in the IDE to show grouping of files with
-    similar extensions under a specific node (for e.g. ".cpp" files are associated with the
-    "Source Files" filter).
-
-NamedPipeProxy.cpp
-    This is the main application source file.
-
-/////////////////////////////////////////////////////////////////////////////
-Other standard files:
-
-StdAfx.h, StdAfx.cpp
-    These files are used to build a precompiled header (PCH) file
-    named NamedPipeProxy.pch and a precompiled types file named StdAfx.obj.
-
-/////////////////////////////////////////////////////////////////////////////
-Other notes:
-
-AppWizard uses "TODO:" comments to indicate parts of the source code you
-should add to or customize.
-
-/////////////////////////////////////////////////////////////////////////////
+<b>Bonus</b>
+A Kd proxy is present in the code :)
+</pre>
