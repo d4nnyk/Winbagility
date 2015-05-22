@@ -1,6 +1,6 @@
 <pre>
 <b>Winbagility</b>
-At this time it is just another crappy POC. It gives the ability to open debugged 8.1 x64 RAW memory dump "directly" in WinDbg.
+At this time it is just another crappy POC. It gives the ability to open debugged and undebugged 8.1 x64 RAW  physical memory dump "directly" in WinDbg.
 It is useless for the moment, Volatility is better than this !
 
 <b>How does it works ?</b>
