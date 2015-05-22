@@ -88,7 +88,7 @@ DWORD WriteKDPipe(HANDLE hPipe, kd_packet_t *pkt){
 }
 
 
-BOOL ParseKDPkt(kd_packet_t* pkt){
+bool ParseKDPkt(kd_packet_t* pkt){
 	printf("---------KD_HEADER-----------\n");
 	printf("Leader: %08x\n", pkt->leader);
 	printf("PacketType: %04x\n", pkt->type);

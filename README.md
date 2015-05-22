@@ -15,10 +15,12 @@ A Kd server is implemented wich simulate a debugged VM that received commands th
 I wanted to save my work in progress...
 
 <b>TODO:</b>
-1. Open undebugged 8.1 x64 raw memory dump
-2. Manage multiple CPU support
-3. Integrate it in virtualbox
-4. Checks, tests, optimisations...
+  <s>1. Opend Debugged 8.1 x64 raw memory dump</s>
+  <s>2. Open undebugged 8.1 x64 raw memory dump</s>
+  3. Manage multiple CPU support
+  4. Integrate it in virtualbox
+  5. Code cleaning, Checks, tests, optimisations...
+  6. Profits !
 
 <b>Bonus</b>
 A Kd proxy is present in the code :)

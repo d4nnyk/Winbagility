@@ -335,7 +335,7 @@ enum{
 //functions
 uint32_t ChecksumKD(kd_packet_t *pkt);
 DWORD WriteKDPipe(HANDLE hPipe, kd_packet_t *pkt);
-BOOL ReadKDPipe(HANDLE hPipe, kd_packet_t *pktBuffer);
-BOOL ParseKDPkt(kd_packet_t* pkt);
+int ReadKDPipe(HANDLE hPipe, kd_packet_t *pktBuffer);
+bool ParseKDPkt(kd_packet_t* pkt);
 
 #endif //__KD_H__

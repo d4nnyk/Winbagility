@@ -7,36 +7,20 @@
 #include <string.h>
 #include <Windows.h>
 
+#include "kdserver.h"
 #include "mmu.h"
 #include "kd.h"
 #include "utils.h"
 #include "dissectors.h"
 
 
-HANDLE DBGPipe; //Windbg->Proxy
-HANDLE VMPipe; //Proxy->VM
+//Windbg->Proxy
+HANDLE DBGPipe; 
 UINT8 serverRunning;
+//This structure contains all information needed for windbg
+analysisContext_t curContext;
 
 
-//TODO: structure !
-const unsigned char* raw_memory_dump;
-uint64_t raw_memory_size;
-uint64_t p_DirectoryTableBase;
-uint64_t p_KPCR;
-uint64_t v_KPCR;
-uint64_t p_KPRCB;
-uint64_t v_KPRCB;
-uint64_t v_CurrentThread;
-uint64_t p_DbgBreakPointWithStatus;
-uint64_t v_DbgBreakPointWithStatus;
-uint64_t v_curRIP;
-uint64_t p_curRIP;
-uint64_t p_KDBG;
-uint64_t v_KDBG;
-uint64_t v_KernBase;
-uint64_t v_PsLoadedModuleList;
-uint64_t p_DebuggerDataList;
-uint64_t v_DebuggerDataList;
 
 BOOL sendKDPkt(kd_packet_t* toSendKDPkt){
 	toSendKDPkt->checksum = ChecksumKD(toSendKDPkt);
@@ -65,9 +49,9 @@ BOOL handleBreakPkt(){
 	tmpKDRespPkt->StateChange.Processor = 0x0000;
 	tmpKDRespPkt->StateChange.NumberProcessors = 0x0000;
 	//tmpKDRespPkt->StateChange.Thread = 0xFFFFF8034535DA00; //Original !
-	tmpKDRespPkt->StateChange.Thread = v_CurrentThread;
+	tmpKDRespPkt->StateChange.Thread = curContext.v_CurrentThread;
 	//tmpKDRespPkt->StateChange.ProgramCounter = 0xFFFFF80345158890; //Original !
-	tmpKDRespPkt->StateChange.ProgramCounter = v_DbgBreakPointWithStatus; //Original !
+	tmpKDRespPkt->StateChange.ProgramCounter = curContext.v_DbgBreakPointWithStatus; //Original !
 
 	//Works without this... TODO:
 	/*tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionCode = 0x80000003;
@@ -96,7 +80,7 @@ BOOL handleBreakPkt(){
 	tmpKDRespPkt->StateChange.ControlReport.EFlags = 0x00000286;
 	tmpKDRespPkt->StateChange.ControlReport.InstructionCount = 0x0010;
 	for (int i = 0; i < tmpKDRespPkt->StateChange.ControlReport.InstructionCount; i++){
-		tmpKDRespPkt->StateChange.ControlReport.InstructionStream[i] = *(raw_memory_dump + p_curRIP + i);
+		tmpKDRespPkt->StateChange.ControlReport.InstructionStream[i] = *(curContext.physicalMemory + curContext.p_curRIP + i);
 	}
 	tmpKDRespPkt->StateChange.ControlReport.ReportFlags = 0x0003;
 	tmpKDRespPkt->StateChange.ControlReport.SegCs = 0x0010;
@@ -160,11 +144,11 @@ BOOL handleDbgKdGetVersionApiPkt(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->ManipulateState64.GetVersion.Simulation = 0x00;
 	tmpKDRespPkt->ManipulateState64.GetVersion.Unknown1 = 0x0000;
 	//tmpKDRespPkt->ManipulateState64.GetVersion.KernelImageBase = 0xFFFFF80345001000;
-	tmpKDRespPkt->ManipulateState64.GetVersion.KernelImageBase = v_KernBase;
+	tmpKDRespPkt->ManipulateState64.GetVersion.KernelImageBase = curContext.v_KernBase;
 	//tmpKDRespPkt->ManipulateState64.GetVersion.PsLoadedModuleList = 0xFFFFF803452DA850;
-	tmpKDRespPkt->ManipulateState64.GetVersion.PsLoadedModuleList = v_PsLoadedModuleList;
+	tmpKDRespPkt->ManipulateState64.GetVersion.PsLoadedModuleList = curContext.v_PsLoadedModuleList;
 	//tmpKDRespPkt->ManipulateState64.GetVersion.DebuggerDataList = 0xFFFFF803452F17B8;
-	tmpKDRespPkt->ManipulateState64.GetVersion.DebuggerDataList = v_DebuggerDataList;
+	tmpKDRespPkt->ManipulateState64.GetVersion.DebuggerDataList = curContext.v_DebuggerDataList;
 	//tmpKDRespPkt->ManipulateState64.GetVersion.Unknown2 = 0x00000000FDFDFDFD;
 	//tmpKDRespPkt->ManipulateState64.GetVersion.Unknown3 = 0x0000000000000000;
 
@@ -186,8 +170,16 @@ BOOL handleDbgKdReadVirtualMemoryApiPkt(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->ManipulateState64.ReadMemory.TargetBaseAddress = tmpKDPkt->ManipulateState64.ReadMemory.TargetBaseAddress;
 	tmpKDRespPkt->ManipulateState64.ReadMemory.TransferCount = tmpKDPkt->ManipulateState64.ReadMemory.TransferCount;
 	tmpKDRespPkt->ManipulateState64.ReadMemory.ActualBytesRead = tmpKDPkt->ManipulateState64.ReadMemory.TransferCount;
-	readMMU((char*)tmpKDRespPkt->ManipulateState64.ReadMemory.Data, tmpKDPkt->ManipulateState64.ReadMemory.TargetBaseAddress, p_DirectoryTableBase, raw_memory_dump, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount);
-
+	//Lot of possibilities here... 
+	//Windbg read @v_KDBG or @v_KDBG+sizeof(DBGKD_DEBUG_DATA_HEADER64)
+	//But what do I have to print when user want to read v_KDBG ? (Ciphered or Unciphered) ?
+	if (tmpKDRespPkt->ManipulateState64.ReadMemory.TargetBaseAddress == curContext.v_KDBG
+		|| tmpKDRespPkt->ManipulateState64.ReadMemory.TargetBaseAddress == curContext.v_KDBG + sizeof(DBGKD_DEBUG_DATA_HEADER64)){ //TODO: check overflow !
+		uint64_t offInKDBG = tmpKDRespPkt->ManipulateState64.ReadMemory.TargetBaseAddress - curContext.v_KDBG;
+		memcpy((char*)tmpKDRespPkt->ManipulateState64.ReadMemory.Data, ((char*)(&curContext.KDBG))+offInKDBG, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount);
+	}else{
+		readMMU((char*)tmpKDRespPkt->ManipulateState64.ReadMemory.Data, tmpKDPkt->ManipulateState64.ReadMemory.TargetBaseAddress, curContext.p_DirectoryTableBase, curContext.physicalMemory, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount);
+	}
 	sendKDPkt(tmpKDRespPkt);
 
 	return true;
@@ -209,17 +201,17 @@ BOOL handleDbgKdReadControlSpaceApi(kd_packet_t *tmpKDPkt){
 	//TODO:  2 @SpecialReagister
 	switch (tmpKDPkt->ManipulateState64.ReadMemory.TargetBaseAddress){
 	case 0: //@KPCR
-		memcpy(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, &v_KPCR, 8);
+		memcpy(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, &curContext.v_KPCR, 8);
 		break;
 	case 1: //@KPRCB
 		//UINT64 KPRCB = 0xfffff80345304180; //Original
-		memcpy(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, &v_KPRCB, 8);
+		memcpy(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, &curContext.v_KPRCB, 8);
 		break;
 	case 2:
-		memcpy(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, raw_memory_dump + p_KPRCB + 0x40 + 0x00, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount);
+		memcpy(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, curContext.physicalMemory + curContext.p_KPRCB + 0x40 + 0x00, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount);
 		break;
 	case 3: //@KTHREAD
-		memcpy(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, &v_CurrentThread, 8);
+		memcpy(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, &curContext.v_CurrentThread, 8);
 		break;
 	default:
 		printf("TODO !!!!\n");
@@ -279,7 +271,7 @@ BOOL handleDbgKdGetRegister(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->ManipulateState64.GetRegisters.SegFs = 0x53;
 	tmpKDRespPkt->ManipulateState64.GetRegisters.SegGs = 0x2b;
 	tmpKDRespPkt->ManipulateState64.GetRegisters.SegSs = 0x18;
-	tmpKDRespPkt->ManipulateState64.GetRegisters.Rip = v_curRIP;
+	tmpKDRespPkt->ManipulateState64.GetRegisters.Rip = curContext.v_curRIP;
 	//Works without this... //TODO: !
 	/*tmpKDRespPkt->ManipulateState64.GetRegisters.DATA[0] = 0x0000000000000000;
 	tmpKDRespPkt->ManipulateState64.GetRegisters.DATA[1] = 0x0000000000000000;
@@ -416,7 +408,6 @@ DWORD WINAPI vmserver(LPVOID lpParam) {
 	kd_packet_t *tmpKDPkt = (kd_packet_t*)tmpBuffer;
 
 	printf("Starting Fake-VM KD Server\n");
-	BOOL result;
 	while (serverRunning == 1){
 		int pktType = ReadKDPipe(DBGPipe, tmpKDPkt);
 
@@ -480,13 +471,13 @@ DWORD WINAPI vmserver(LPVOID lpParam) {
 	return 0;
 }
 
-BOOL OpenDMPFile(){
-	HANDLE	hfile = CreateFile(L"C:\\8_1_x64.dmp", GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_RANDOM_ACCESS, NULL);
-	if (hfile == INVALID_HANDLE_VALUE)
-	{
+BOOL OpenDMPFile(wchar_t* fileName){
+	HANDLE	hfile = CreateFile(fileName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_RANDOM_ACCESS, NULL);
+
+	if (hfile == INVALID_HANDLE_VALUE){
 		fprintf(stderr, "CreateFile() error 0x%08x\n", GetLastError());
 		getchar();
-		return 1;
+		return false;
 	}
 
 	HANDLE map_handle = CreateFileMapping(hfile, NULL, PAGE_READWRITE | SEC_RESERVE, 0, 0, 0);
@@ -495,62 +486,40 @@ BOOL OpenDMPFile(){
 		fprintf(stderr, "CreateFileMapping() error 0x%08x\n", GetLastError());
 		getchar();
 		CloseHandle(hfile);
-		return 1;
+		return false;
 	}
 
-	raw_memory_dump = (const unsigned char*)MapViewOfFile(map_handle, FILE_MAP_WRITE | FILE_MAP_READ, 0, 0, 0);
-	if (raw_memory_dump == NULL)
+	curContext.physicalMemory = (const unsigned char*)MapViewOfFile(map_handle, FILE_MAP_WRITE | FILE_MAP_READ, 0, 0, 0);
+	if (curContext.physicalMemory == NULL)
 	{
 		fprintf(stderr, "MapViewOfFile() error 0x%08x\n", GetLastError());
 		getchar();
 		CloseHandle(map_handle);
 		CloseHandle(hfile);
-		return 1;
+		return false;
 	}
 
-	GetFileSizeEx(hfile, (LARGE_INTEGER*)&raw_memory_size);
+	GetFileSizeEx(hfile, (LARGE_INTEGER*)&curContext.physicalMemorySize);
+	return true;
 }
 
-BOOL initKDServer(){
-	OpenDMPFile();
-
-	//TODO: initial analysis function !
-	p_DirectoryTableBase = findDTB(raw_memory_dump, raw_memory_size);
-	printf("p_DirectoryTableBase : 0x%p\n", p_DirectoryTableBase);
-	p_KPCR = findKPCR(0, p_DirectoryTableBase, raw_memory_dump, raw_memory_size);
-	printf("p_KPCR : %p\n", p_KPCR);
-	v_KPCR = BYTESWAP64(read64(p_KPCR + 0x18, raw_memory_dump));
-	printf("v_KPCR : %p\n", v_KPCR);
-	p_KPRCB = p_KPCR + 0x180;
-	printf("p_KPRCB : %p\n", p_KPRCB);
-	v_KPRCB = BYTESWAP64(read64(p_KPCR + 0x20, raw_memory_dump));
-	printf("v_KPRCB : %p\n", v_KPRCB);
-	v_CurrentThread = BYTESWAP64(read64(p_KPRCB + 8, raw_memory_dump));
-	printf("v_CurrentThread : 0x%p !\n", v_CurrentThread);
-	p_KDBG = findKDBG(raw_memory_dump, raw_memory_size);
-	v_KDBG = physical_virtual(p_KDBG, p_DirectoryTableBase, raw_memory_dump, raw_memory_size);
-
-	printf("v_KDBG : %p\n", v_KDBG);
-	v_KernBase = BYTESWAP64(read64(p_KDBG + 0x18, raw_memory_dump));
-	printf("v_KernBase : %p\n", v_KernBase);
-	v_PsLoadedModuleList = BYTESWAP64(read64(p_KDBG + 0x48, raw_memory_dump));
-	printf("v_PsLoadedModuleList : %p\n", v_PsLoadedModuleList);
-	v_DbgBreakPointWithStatus = BYTESWAP64(read64(p_KDBG + 0x20, raw_memory_dump));
-	printf("v_DbgBreakPointWithStatus : %p\n", v_DbgBreakPointWithStatus);
-	v_curRIP = v_DbgBreakPointWithStatus; //Raw mode...
-	printf("v_curRIP : %p\n", v_curRIP);
-	p_curRIP = virtual_physical(v_curRIP, p_DirectoryTableBase, raw_memory_dump, raw_memory_size);
-	printf("p_curRIP : %p\n", p_curRIP);
-	p_DebuggerDataList = findDebuggerDataList(v_KDBG, raw_memory_dump, raw_memory_size);
-	printf("p_DebuggerDataList : %p\n", p_DebuggerDataList);
-	v_DebuggerDataList = physical_virtual(p_DebuggerDataList, p_DirectoryTableBase, raw_memory_dump, raw_memory_size);
-	printf("v_DebuggerDataList : %p\n", v_DebuggerDataList);
+bool initKDServer(IMAGE_TYPE mode, wchar_t* fileName){
+	curContext.curMode = mode; 
+	if (OpenDMPFile(fileName) == false){
+		printf("Unable to open file !\n");
+		return false;
+	}
+	if (initialeAnalysis(&curContext) == false){
+		printf("Unable to initiale analysis !\n");
+		return false;
+	}
 	
+	printf("KD Server Initialisation OK !\n");
 	system("pause");
 	return true;
 }
 
-BOOL startKDServer(){
+bool startKDServer(){
 	CreateDBGNamedPipe(&DBGPipe);
 
 	Sleep(1000);
