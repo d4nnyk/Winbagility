@@ -18,13 +18,13 @@ A Kd server is implemented wich simulate a debugged Windows station that receive
 <b>How to use (VBOX MODE)?</b>
 1. Patch Vbox, compile it
 2. Add in VM_NAME.vbox:
-<ExtraData>
+&lt;ExtraData&gt;
     ...
-    <ExtraDataItem name="VBoxInternal/DBGC/Address" value="127.0.0.1"/>
-    <ExtraDataItem name="VBoxInternal/DBGC/Enabled" value="1"/>
-    <ExtraDataItem name="VBoxInternal/DBGC/Port" value="5000"/>
+    &lt;ExtraDataItem name="VBoxInternal/DBGC/Address" value="127.0.0.1"/&gt;
+    &lt;ExtraDataItem name="VBoxInternal/DBGC/Enabled" value="1"/&gt;
+    &lt;ExtraDataItem name="VBoxInternal/DBGC/Port" value="5000"/&gt;
     ...
-</ExtraData>
+&lt;/ExtraData&gt;
 3. Start it
 4. Start Winbaggility
 3. Start Windbg and connect it to named pipe "\\.\pipe\client
