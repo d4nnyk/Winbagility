@@ -89,6 +89,9 @@ DWORD WriteKDPipe(HANDLE hPipe, kd_packet_t *pkt){
 
 
 bool ParseKDPkt(kd_packet_t* pkt){
+	printf("------------RAW--------------\n");
+	dumpHexData((char*)pkt, pkt->length + 16);
+	printf("-----------------------------\n");
 	printf("---------KD_HEADER-----------\n");
 	printf("Leader: %08x\n", pkt->leader);
 	printf("PacketType: %04x\n", pkt->type);
@@ -229,6 +232,9 @@ bool ParseKDPkt(kd_packet_t* pkt){
 			printf("\t[DbgKdSetContextApi]\n");
 			//TODO !! Copy KiProcessorBlock[State->Processor]->ProcessorState.ContextFrame;
 			break;
+		case DbgKdContinueApi:
+			printf("\t[DbgKdContinueApi]\n");
+			break;
 		case DbgKdContinueApi2: //Go !
 			printf("\t[DbgKdContinueApi2]\n");
 			//TODO
@@ -283,9 +289,9 @@ bool ParseKDPkt(kd_packet_t* pkt){
 			printf("\t[DbgKdSwitchProcessor]\n");
 			break;
 		default: //Stop ALL !
+			printf("\t[UNKNOWN]\n");
 			//stopKDServer();
 			//printHexData((char*)pkt->data, pkt->length);
-			dumpHexData((char*)pkt, pkt->length+16);
 			//system("pause");
 		}
 		printf("\t---------KD_CONTENT-----------\n");

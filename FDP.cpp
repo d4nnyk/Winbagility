@@ -23,6 +23,11 @@ uint8_t FDP_resume(HANDLE toVMPipe){
 }
 
 uint64_t FDP_readRegister(HANDLE toVMPipe, uint8_t registerId){
+	//XXX: Trick to make "Go" command working
+	//TODO: Find how to pass GDT to Windbg !
+	if (registerId == CS_REGISTER){
+		return 0;
+	}
 	Put8Pipe(toVMPipe, READ_REGISTER_64);
 	Put8Pipe(toVMPipe, registerId);
 	FlushFileBuffers(toVMPipe);

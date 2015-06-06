@@ -155,10 +155,10 @@ void printKDBG(_KDDEBUGGER_DATA64 *tmpKDBG){
 
 
 uint64_t findDTB(analysisContext_t *context){
-	return 0x00000000001AA000; //XXX: test !
 	if (context->curMode == STOCK_VBOX_TYPE){
 		return FDP_readRegister(context->toVMPipe, CR3_REGISTER);
 	}
+	//TODO: use "WDBG_searchMemory" !
 	const char SystemEPROCESSPattern[] = { 'S', 'y', 's', 't', 'e', 'm', 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	uint64_t i;
 	//for (i = 0x0; i<memSize - 4096; i++){
@@ -233,7 +233,7 @@ uint64_t findDebuggerDataList(uint64_t v_KDBG, analysisContext_t *context){
 	memcpy(DebuggerDataListPattern, &v_KDBG, 8);
 	memcpy(DebuggerDataListPattern + 8, &v_KDBG, 8);
 
-	return searchMemory((uint8_t*)DebuggerDataListPattern, 16, 0, context);
+	return WDBG_searchMemory((uint8_t*)DebuggerDataListPattern, 16, 0, context);
 }
 
 inline uint64_t _rol64(uint64_t v, uint64_t s){
@@ -274,7 +274,7 @@ fffff803`451e0c86  48 d3 c2 48 33 d0 48 0f-ca                       H..H3.H..
 bool findPGkeys(analysisContext_t *context){
 	//Looking for nt!KdCopyDataBlock
 	uint8_t KdCopyDataBlockPattern[] = { 0x48, 0xD3, 0xC2, 0x48, 0x33, 0xD0, 0x48, 0x0F, 0xCA };
-	uint64_t p_KdCopyDataBlock = searchMemory(KdCopyDataBlockPattern, sizeof(KdCopyDataBlockPattern), 0, context);
+	uint64_t p_KdCopyDataBlock = WDBG_searchMemory(KdCopyDataBlockPattern, sizeof(KdCopyDataBlockPattern), 0, context);
 	printf("%p\n", p_KdCopyDataBlock);
 	uint64_t off_KdDebuggerDataBlock = readPhysical32(p_KdCopyDataBlock - 37, context);
 	printf("off_KdDebuggerDataBlock : %p\n", off_KdDebuggerDataBlock);

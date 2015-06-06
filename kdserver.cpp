@@ -166,6 +166,9 @@ BOOL handleDbgKdGetVersionApiPkt(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->length = 56;
 	tmpKDRespPkt->id = tmpKDPkt->id ^ 0x1;
 	tmpKDRespPkt->ManipulateState64.ApiNumber = DbgKdGetVersionApi;
+	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
+	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
+
 	tmpKDRespPkt->ManipulateState64.GetVersion.MajorVersion = 0x000f;
 	tmpKDRespPkt->ManipulateState64.GetVersion.MinorVersion = 0x2580;
 	tmpKDRespPkt->ManipulateState64.GetVersion.ProtocolVersion = 0x0206;
@@ -197,6 +200,8 @@ BOOL handleDbgKdReadVirtualMemoryApiPkt(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->length = 56 + tmpKDPkt->ManipulateState64.ReadMemory.TransferCount;
 	tmpKDRespPkt->id = tmpKDPkt->id ^ 0x1;
 	tmpKDRespPkt->ManipulateState64.ApiNumber = DbgKdReadVirtualMemoryApi;
+	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
+	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
 	tmpKDRespPkt->ManipulateState64.ReadMemory.TargetBaseAddress = tmpKDPkt->ManipulateState64.ReadMemory.TargetBaseAddress;
 	tmpKDRespPkt->ManipulateState64.ReadMemory.TransferCount = tmpKDPkt->ManipulateState64.ReadMemory.TransferCount;
 	tmpKDRespPkt->ManipulateState64.ReadMemory.ActualBytesRead = tmpKDPkt->ManipulateState64.ReadMemory.TransferCount;
@@ -225,6 +230,9 @@ BOOL handleDbgKdReadControlSpaceApi(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->length = 56 + 8;
 	tmpKDRespPkt->id = tmpKDPkt->id ^ 0x1;
 	tmpKDRespPkt->ManipulateState64.ApiNumber = DbgKdReadControlSpaceApi;
+	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
+	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
+
 	tmpKDRespPkt->ManipulateState64.ReadMemory.TargetBaseAddress = tmpKDPkt->ManipulateState64.ReadMemory.TargetBaseAddress;
 	tmpKDRespPkt->ManipulateState64.ReadMemory.TransferCount = tmpKDPkt->ManipulateState64.ReadMemory.TransferCount;
 	tmpKDRespPkt->ManipulateState64.ReadMemory.ActualBytesRead = tmpKDPkt->ManipulateState64.ReadMemory.TransferCount;
@@ -236,8 +244,8 @@ BOOL handleDbgKdReadControlSpaceApi(kd_packet_t *tmpKDPkt){
 		memcpy(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, &curContext->v_KPRCB, 8);
 		break;
 	case 2: //@SpecialReagister
-		//readPhysical(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount, curContext->p_KPRCB + 0x40 + 0x00, curContext);
-		memcpy(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, &curContext->SpecialRegister, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount);
+		readPhysical(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount, curContext->p_KPRCB + 0x40 + 0x00, curContext);
+		//memcpy(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, &curContext->SpecialRegister, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount);
 		break;
 	case 3: //@KTHREAD
 		memcpy(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, &curContext->v_CurrentThread, 8);
@@ -263,6 +271,8 @@ BOOL handleDbgKdRestoreBreakPointApi(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->length = 56;
 	tmpKDRespPkt->id = tmpKDPkt->id ^ 0x1;
 	tmpKDRespPkt->ManipulateState64.ApiNumber = DbgKdRestoreBreakPointApi;
+	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
+	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
 	tmpKDRespPkt->ManipulateState64.RestoreBreakPoint.BreakPointHandle = tmpKDPkt->ManipulateState64.RestoreBreakPoint.BreakPointHandle;
 
 	sendKDPkt(tmpKDRespPkt);
@@ -280,6 +290,8 @@ BOOL handleDbgKdGetRegister(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->length = 1288;
 	tmpKDRespPkt->id = tmpKDPkt->id ^ 0x1;
 	tmpKDRespPkt->ManipulateState64.ApiNumber = DbgKdGetRegister;
+	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
+	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
 	//TODO: What those values are ?
 	tmpKDRespPkt->ManipulateState64.GetRegisters.u[0] = tmpKDPkt->ManipulateState64.GetRegisters.u[0];
 	tmpKDRespPkt->ManipulateState64.GetRegisters.u[1] = tmpKDPkt->ManipulateState64.GetRegisters.u[1] + 0x4D0;
@@ -531,6 +543,7 @@ bool handleDbgKdSetContextApi(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->length = 56;
 	tmpKDRespPkt->id = tmpKDPkt->id ^ 0x1;
 	tmpKDRespPkt->ApiNumber = DbgKdSetContextApi;
+	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
 	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
 
 	sendKDPkt(tmpKDRespPkt);
@@ -547,6 +560,7 @@ bool handleDbgKdWriteControlSpaceApi(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->length = 280;
 	tmpKDRespPkt->id = tmpKDPkt->id ^ 0x1;
 	tmpKDRespPkt->ApiNumber = DbgKdWriteControlSpaceApi;
+	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
 	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
 
 	tmpKDRespPkt->ManipulateState64.WriteMemory.TargetBaseAddress = tmpKDPkt->ManipulateState64.WriteMemory.TargetBaseAddress;
@@ -571,6 +585,19 @@ bool handleDbgKdWriteControlSpaceApi(kd_packet_t *tmpKDPkt){
 	sendKDPkt(tmpKDRespPkt);
 	return true;
 }
+
+//TODO: Something wrong somewhere, but working...
+// This function should not be call in x86-64
+bool handleDbgKdContinueApi(kd_packet_t *tmpKDPkt){
+	char tmpBuffer[65 * 1024];
+	memset(tmpBuffer, 0, 65 * 1024);
+	kd_packet_t *tmpKDRespPkt = (kd_packet_t*)tmpBuffer;
+
+	WDBG_resume(curContext);
+
+	return true;
+}
+
 
 bool handleDbgKdContinueApi2(kd_packet_t *tmpKDPkt){
 	char tmpBuffer[65 * 1024];
@@ -649,6 +676,10 @@ DWORD WINAPI vmserver(LPVOID lpParam) {
 				case DbgKdWriteControlSpaceApi:
 					ackKDPkt(tmpKDPkt);
 					handleDbgKdWriteControlSpaceApi(tmpKDPkt);
+					break;
+				case DbgKdContinueApi:
+					ackKDPkt(tmpKDPkt);
+					handleDbgKdContinueApi(tmpKDPkt);
 					break;
 				case DbgKdContinueApi2:
 					ackKDPkt(tmpKDPkt);

@@ -26,12 +26,12 @@ int _tmain(int argc, _TCHAR* argv[]){
 	//curContext.curMode = DEBUGGED_IMAGE_TYPE;
 
 	//UNDEBUGGED RAW DMP
-	char fileName[] = "C:\\8_1_x64_STOCK.dmp";
-	curContext.curMode = STOCK_IMAGE_TYPE;
+	//char fileName[] = "C:\\8_1_x64_STOCK.dmp";
+	//curContext.curMode = STOCK_IMAGE_TYPE;
 
 	//UNDEBUGGED WINDOWS IN FDP COMPLIANT VM
-	//char fileName[] = "\\\\.\\pipe\\debugger"; //FDP named Pipe
-	//curContext.curMode = STOCK_VBOX_TYPE;
+	char fileName[] = "\\\\.\\pipe\\debugger"; //FDP named Pipe
+	curContext.curMode = STOCK_VBOX_TYPE;
 
 	//LET'S START !!!
 	curContext.dmpFileName = fileName;

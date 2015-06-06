@@ -16,7 +16,7 @@
 //TODO: bool !
 uint64_t WDBG_searchMemory(uint8_t *patternData, uint64_t patternSize, uint64_t startOffset, analysisContext_t *context){
 	if (context->curMode == STOCK_VBOX_TYPE){
-		FDP_searchMemory(patternData, patternSize, startOffset, context->toVMPipe);
+		return FDP_searchMemory(patternData, patternSize, startOffset, context->toVMPipe);
 	}
 
 	for (uint64_t i = startOffset; i < context->physicalMemorySize - 4096; i++){
