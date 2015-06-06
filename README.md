@@ -26,7 +26,7 @@ A Kd server is implemented wich simulate a debugged Windows station that receive
     ...
 &lt;/ExtraData&gt;
 3. Start it
-4. Start Winbaggility
+4. Start Winbagility
 3. Start Windbg and connect it to named pipe "\\.\pipe\client
 
 <b>Why did I commit this s**t ?</b>
