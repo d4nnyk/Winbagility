@@ -140,10 +140,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Text Include="ReadMe.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="dissectors.h" />
+    <ClInclude Include="FDP.h" />
     <ClInclude Include="kd.h" />
     <ClInclude Include="kdproxy.h" />
     <ClInclude Include="kdserver.h" />
@@ -154,6 +152,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dissectors.cpp" />
+    <ClCompile Include="FDP.cpp" />
     <ClCompile Include="kd.cpp" />
     <ClCompile Include="kdserver.cpp" />
     <ClCompile Include="mmu.cpp" />

@@ -17,6 +17,7 @@
     <Project TargetFileName="NamedPipeProxy.vcxproj" File="NamedPipeProxy.vcxproj" ReplaceParameters="true">
       <ProjectItem ReplaceParameters="false" TargetFileName="$projectname$.vcxproj.filters">NamedPipeProxy.vcxproj.filters</ProjectItem>
       <ProjectItem ReplaceParameters="false" TargetFileName="dissectors.cpp">dissectors.cpp</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="FDP.cpp">FDP.cpp</ProjectItem>
       <ProjectItem ReplaceParameters="false" TargetFileName="kd.cpp">kd.cpp</ProjectItem>
       <ProjectItem ReplaceParameters="false" TargetFileName="kdserver.cpp">kdserver.cpp</ProjectItem>
       <ProjectItem ReplaceParameters="false" TargetFileName="mmu.cpp">mmu.cpp</ProjectItem>
@@ -25,6 +26,7 @@
       <ProjectItem ReplaceParameters="false" TargetFileName="stdafx.cpp">stdafx.cpp</ProjectItem>
       <ProjectItem ReplaceParameters="false" TargetFileName="utils.cpp">utils.cpp</ProjectItem>
       <ProjectItem ReplaceParameters="false" TargetFileName="dissectors.h">dissectors.h</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="FDP.h">FDP.h</ProjectItem>
       <ProjectItem ReplaceParameters="false" TargetFileName="kd.h">kd.h</ProjectItem>
       <ProjectItem ReplaceParameters="false" TargetFileName="kdproxy.h">kdproxy.h</ProjectItem>
       <ProjectItem ReplaceParameters="false" TargetFileName="kdserver.h">kdserver.h</ProjectItem>
@@ -33,7 +35,6 @@
       <ProjectItem ReplaceParameters="false" TargetFileName="README.md">README.md</ProjectItem>
       <ProjectItem ReplaceParameters="false" TargetFileName="stdafx.h">stdafx.h</ProjectItem>
       <ProjectItem ReplaceParameters="false" TargetFileName="targetver.h">targetver.h</ProjectItem>
-      <ProjectItem ReplaceParameters="false" TargetFileName="ReadMe.txt">ReadMe.txt</ProjectItem>
     </Project>
   </TemplateContent>
 </VSTemplate>

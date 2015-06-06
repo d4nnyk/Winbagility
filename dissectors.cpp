@@ -10,6 +10,8 @@
 #include "dissectors.h"
 #include "kdserver.h"
 #include "mmu.h"
+#include "utils.h"
+#include "FDP.h"
 
 void printKDBG(_KDDEBUGGER_DATA64 *tmpKDBG){
 	printf("-------------KDBG-----------------------\n");
@@ -152,15 +154,19 @@ void printKDBG(_KDDEBUGGER_DATA64 *tmpKDBG){
 
 
 
-uint64_t findDTB(const unsigned char *memory, uint64_t memSize){
+uint64_t findDTB(analysisContext_t *context){
+	return 0x00000000001AA000; //XXX: test !
+	if (context->curMode == STOCK_VBOX_TYPE){
+		return FDP_readRegister(context->toVMPipe, CR3_REGISTER);
+	}
 	const char SystemEPROCESSPattern[] = { 'S', 'y', 's', 't', 'e', 'm', 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	uint64_t i;
 	//for (i = 0x0; i<memSize - 4096; i++){
-	for (i = memSize-PAGE_SIZE; i>0; i--){
-		if (memcmp(memory + i + 0x438, SystemEPROCESSPattern, sizeof(SystemEPROCESSPattern)) == 0 //Is ImageFileName == "System" ?
-			&& BYTESWAP64(read64(i + 0x2e0, memory)) == 0x04){ //Is PID == 4 ?
+	for (i = context->physicalMemorySize-PAGE_SIZE; i>0; i--){
+		if (memcmp(context->physicalMemory + i + 0x438, SystemEPROCESSPattern, sizeof(SystemEPROCESSPattern)) == 0 //Is ImageFileName == "System" ?
+			&& readPhysical64(i + 0x2e0, context) == 0x04){ //Is PID == 4 ?
 			printf("Physical System KPROCESS : 0x%p !\n", i);
-			return BYTESWAP64(read64(i + 0x28, memory));
+			return readPhysical64(i + 0x28, context);
 		}
 	}
 	return 0;
@@ -168,22 +174,23 @@ uint64_t findDTB(const unsigned char *memory, uint64_t memSize){
 
 
 //Physical KPCR
-uint64_t findKPCR(uint8_t cpuId, uint64_t DirectoryTableBase, const unsigned char *memory, uint64_t memSize){
+uint64_t findKPCR(uint8_t cpuId, analysisContext_t *context){ //TODO: in virtualbox  ?
 	uint64_t i;
-	for (i = 0x0; i<memSize / PAGE_SIZE; i++){
+	for (i = 7950; i<context->physicalMemorySize / PAGE_SIZE; i++){
 		uint64_t page_base = i*PAGE_SIZE;
-		uint64_t tmp_value = BYTESWAP64(read64(page_base + 0x18, memory));
-		uint64_t tmp_physical_addr = virtual_physical(tmp_value, DirectoryTableBase, memory, memSize);
+		printf("%d %p\n", i, page_base);
+		uint64_t tmp_value = readPhysical64(page_base + 0x18, context);
+		uint64_t tmp_physical_addr = virtual_physical(tmp_value, context);
 
 		if (tmp_physical_addr
-		&& tmp_physical_addr == page_base){//is KPCR->SelfPcr = @KPCR ?
+			&& tmp_physical_addr == page_base){//is KPCR->SelfPcr = @KPCR ?
 			//Paranoid check !
-			uint64_t CurrentPrc = BYTESWAP64(read64(page_base + 0x20, memory));
-			uint64_t Prcb = virtual_physical(CurrentPrc, DirectoryTableBase, memory, memSize);
+			uint64_t CurrentPrc = readPhysical64(page_base + 0x20, context);
+			uint64_t Prcb = virtual_physical(CurrentPrc, context);
 			if (Prcb == page_base + 0x180
-			&& *(memory + page_base + 0x180 + 0x24) == cpuId){
-				//printf("Physical KPCR : 0x%p !\n", i*PAGE_SIZE);
-				//printf("Virtual KPCR  : 0x%p !\n", tmp_value);
+				&& readPhysical8(page_base + 0x180 + 0x24, context) == cpuId){
+				printf("Physical KPCR : 0x%p !\n", page_base);
+				printf("Virtual KPCR  : 0x%p !\n", tmp_value);
 				return page_base;
 			}
 		}
@@ -221,17 +228,12 @@ uint64_t findKDBG(const unsigned char *memory, uint64_t memSize){
 }
 
 //Physical DebuggerDataList
-uint64_t findDebuggerDataList(uint64_t v_KDBG, const unsigned char *memory, uint64_t memSize){
-	uint64_t i;
-	for (i = 0x0; i<memSize - 4096; i++){
-		if (memcmp(memory + i, &v_KDBG, 8) == 0
-		&& memcmp(memory + i + 8, &v_KDBG, 8) == 0){
-			//printf("Physical KDBG : 0x%p !\n", i);
-			//return BYTESWAP64(read64(i, memory));
-			return i;
-		}
-	}
-	return 0;
+uint64_t findDebuggerDataList(uint64_t v_KDBG, analysisContext_t *context){
+	char DebuggerDataListPattern[16];
+	memcpy(DebuggerDataListPattern, &v_KDBG, 8);
+	memcpy(DebuggerDataListPattern + 8, &v_KDBG, 8);
+
+	return searchMemory((uint8_t*)DebuggerDataListPattern, 16, 0, context);
 }
 
 inline uint64_t _rol64(uint64_t v, uint64_t s){
@@ -271,32 +273,21 @@ fffff803`451e0c86  48 d3 c2 48 33 d0 48 0f-ca                       H..H3.H..
 */
 bool findPGkeys(analysisContext_t *context){
 	//Looking for nt!KdCopyDataBlock
-	const char KdCopyDataBlockPattern[] = { 0x48, 0xD3, 0xC2, 0x48, 0x33, 0xD0, 0x48, 0x0F, 0xCA };
-	uint64_t p_KdCopyDataBlock = 0;
-	uint64_t i;
-	for (i = 0x0; i<context->physicalMemorySize - 4096; i++){
-		if (memcmp(context->physicalMemory + i, KdCopyDataBlockPattern, sizeof(KdCopyDataBlockPattern)) == 0){
-			p_KdCopyDataBlock = i;
-			break;
-		}
-	}
-
-	//Extract relative address of keys
-	uint64_t off_KdDebuggerDataBlock = 0;
-	memcpy(&off_KdDebuggerDataBlock, context->physicalMemory + p_KdCopyDataBlock - 37, 4);
+	uint8_t KdCopyDataBlockPattern[] = { 0x48, 0xD3, 0xC2, 0x48, 0x33, 0xD0, 0x48, 0x0F, 0xCA };
+	uint64_t p_KdCopyDataBlock = searchMemory(KdCopyDataBlockPattern, sizeof(KdCopyDataBlockPattern), 0, context);
+	printf("%p\n", p_KdCopyDataBlock);
+	uint64_t off_KdDebuggerDataBlock = readPhysical32(p_KdCopyDataBlock - 37, context);
 	printf("off_KdDebuggerDataBlock : %p\n", off_KdDebuggerDataBlock);
-	uint64_t off_KiWaitNever = 0;
-	memcpy(&off_KiWaitNever, context->physicalMemory + p_KdCopyDataBlock - 19, 4);
+	uint64_t off_KiWaitNever = readPhysical32(p_KdCopyDataBlock - 19, context);
 	printf("off_KiWaitNever : %p\n", off_KiWaitNever);
-	uint64_t off_KdpDataBlockEncoded = 0;
-	memcpy(&off_KdpDataBlockEncoded, context->physicalMemory + p_KdCopyDataBlock - 4, 4);
+	uint64_t off_KdpDataBlockEncoded = readPhysical32(p_KdCopyDataBlock - 4, context);
 	printf("off_KdpDataBlockEncoded : %p\n", off_KdpDataBlockEncoded);
-	uint64_t off_KiWaitAlways = 0;
-	memcpy(&off_KiWaitAlways, context->physicalMemory + p_KdCopyDataBlock + 12, 4);
+	uint64_t off_KiWaitAlways = readPhysical32(p_KdCopyDataBlock + 12, context);
 	printf("off_KiWaitAlways : %p\n", off_KiWaitAlways);
 
 	//Get virtual RIP
-	uint64_t v_KdCopyDataBlock = physical_virtual(p_KdCopyDataBlock, context->p_DirectoryTableBase, context->physicalMemory, context->physicalMemorySize);
+	uint64_t v_KdCopyDataBlock = physical_virtual(p_KdCopyDataBlock, context);
+	//uint64_t v_KdCopyDataBlock = 0xFFFFF801CF1EEC86; //XXX: speed up my tests ! !
 	printf("v_KdCopyDataBlock : %p\n", v_KdCopyDataBlock);
 
 	//Compute virtual adress of keys
@@ -310,34 +301,34 @@ bool findPGkeys(analysisContext_t *context){
 	printf("v_KiWaitAlways : %p\n", v_KiWaitAlways);
 
 	//Get physical address of keys
-	uint64_t p_KiWaitNever = virtual_physical(v_KiWaitNever, context->p_DirectoryTableBase, context->physicalMemory, context->physicalMemorySize);
+	uint64_t p_KiWaitNever = virtual_physical(v_KiWaitNever, context);
 	printf("p_KiWaitNever : %p\n", p_KiWaitNever);
-	uint64_t p_KiWaitAlways = virtual_physical(v_KiWaitAlways, context->p_DirectoryTableBase, context->physicalMemory, context->physicalMemorySize);
+	uint64_t p_KiWaitAlways = virtual_physical(v_KiWaitAlways, context);
 	printf("p_KiWaitAlways : %p\n", p_KiWaitAlways);
 
 	//Retrieve keys value
 	//..PGKeys_t *keys = (PGKeys_t *)malloc(sizeof(PGKeys_t));
-	context->KiWaitNever = BYTESWAP64(read64(p_KiWaitNever, context->physicalMemory));
+	context->KiWaitNever = readPhysical64(p_KiWaitNever, context);
 	printf("keys->KiWaitNever : %p\n", context->KiWaitNever);
-	context->KiWaitAlways = BYTESWAP64(read64(p_KiWaitAlways, context->physicalMemory));
+	context->KiWaitAlways = readPhysical64(p_KiWaitAlways, context);
 	printf("keys->KiWaitAlways : %p\n", context->KiWaitAlways);
 	context->KdpDataBlockEncoded = v_KdpDataBlockEncoded;
 	printf("keys->KdpDataBlockEncoded : %p\n", context->KdpDataBlockEncoded);
 	context->v_KDBG = v_KdDebuggerDataBlock;
-	context->p_KDBG = virtual_physical(v_KdDebuggerDataBlock, context->p_DirectoryTableBase, context->physicalMemory, context->physicalMemorySize);
-
+	context->p_KDBG = virtual_physical(v_KdDebuggerDataBlock, context);
 	
 	if (context->curMode == DEBUGGED_IMAGE_TYPE){
 		//Retrieve KDBG
-		readMMU((char*)&context->KDBG, v_KdDebuggerDataBlock, context->p_DirectoryTableBase, context->physicalMemory, sizeof(_KDDEBUGGER_DATA64));
+		readMMU((uint8_t*)&context->KDBG, sizeof(_KDDEBUGGER_DATA64), v_KdDebuggerDataBlock, context);
 	}else{
 		//Uncipher KDB
-		readMMU((char*)&context->encodedKDBG, v_KdDebuggerDataBlock, context->p_DirectoryTableBase, context->physicalMemory, sizeof(_KDDEBUGGER_DATA64));
+		readMMU((uint8_t*)&context->encodedKDBG, sizeof(_KDDEBUGGER_DATA64), v_KdDebuggerDataBlock, context);
 		for (int i = 0; i < sizeof(KDDEBUGGER_DATA64)/8; i++){
 			uint64_t tmpEncodedData = ((uint64_t*)&context->encodedKDBG)[i];
 			((uint64_t*)&context->KDBG)[i] = uncipherData(tmpEncodedData, context->KiWaitNever, context->KiWaitAlways, context->KdpDataBlockEncoded);
 		}
 	}
+	//printKDBG((KDDEBUGGER_DATA64*)&context->encodedKDBG);
 	printKDBG((KDDEBUGGER_DATA64*)&context->KDBG);
 
 	return true;
@@ -368,17 +359,18 @@ bool initialeAnalysis(analysisContext_t *context){
 			context->curMode = STOCK_IMAGE_TYPE;
 		}
 	}
-	context->p_DirectoryTableBase = findDTB(context->physicalMemory, context->physicalMemorySize);
+	//TODO: systemDirectoryTableBase and currentThreadDirectoryTableBase !
+	context->p_DirectoryTableBase = findDTB(context);
 	printf("p_DirectoryTableBase : 0x%p\n", context->p_DirectoryTableBase);
-	context->p_KPCR = findKPCR(0, context->p_DirectoryTableBase, context->physicalMemory, context->physicalMemorySize);
+	context->p_KPCR = findKPCR(0, context);
 	printf("p_KPCR : %p\n", context->p_KPCR);
-	context->v_KPCR = BYTESWAP64(read64(context->p_KPCR + 0x18, context->physicalMemory));
+	context->v_KPCR = readPhysical64(context->p_KPCR + 0x18, context);
 	printf("v_KPCR : %p\n", context->v_KPCR);
 	context->p_KPRCB = context->p_KPCR + 0x180;
 	printf("p_KPRCB : %p\n", context->p_KPRCB);
-	context->v_KPRCB = BYTESWAP64(read64(context->p_KPCR + 0x20, context->physicalMemory));
+	context->v_KPRCB = readPhysical64(context->p_KPCR + 0x20, context);
 	printf("v_KPRCB : %p\n", context->v_KPRCB);
-	context->v_CurrentThread = BYTESWAP64(read64(context->p_KPRCB + 8, context->physicalMemory));
+	context->v_CurrentThread = readPhysical64(context->p_KPRCB + 8, context);
 	printf("v_CurrentThread : 0x%p !\n", context->v_CurrentThread);
 
 
@@ -397,13 +389,16 @@ bool initialeAnalysis(analysisContext_t *context){
 	context->v_curRIP = context->v_DbgBreakPointWithStatus; //Physical dump...
 	printf("v_curRIP : %p\n", context->v_curRIP);
 
-	context->p_curRIP = virtual_physical(context->v_curRIP, context->p_DirectoryTableBase, context->physicalMemory, context->physicalMemorySize);
+	context->p_curRIP = virtual_physical(context->v_curRIP, context);
 	printf("p_curRIP : %p\n", context->p_curRIP);
 
-	context->p_DebuggerDataList = findDebuggerDataList(context->v_KDBG, context->physicalMemory, context->physicalMemorySize);
+	context->p_DebuggerDataList = findDebuggerDataList(context->v_KDBG, context);
 	printf("p_DebuggerDataList : %p\n", context->p_DebuggerDataList);
-	context->v_DebuggerDataList = physical_virtual(context->p_DebuggerDataList, context->p_DirectoryTableBase, context->physicalMemory, context->physicalMemorySize);
+	context->v_DebuggerDataList = physical_virtual(context->p_DebuggerDataList, context);
+	//context->v_DebuggerDataList = 0xFFFFF801CF2FF7B8; //XXX: speed up my tests !
 	printf("v_DebuggerDataList : %p\n", context->v_DebuggerDataList);
+
+	readPhysical(context->SpecialRegister, 0xe0, context->p_KPRCB + 0x40 + 0x00, context);
 
 	return true;
 }

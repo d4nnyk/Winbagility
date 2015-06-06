@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
+#include <Windows.h>
 
 #pragma pack()
 struct _DBGKD_DEBUG_DATA_HEADER64 {
@@ -157,11 +158,14 @@ enum IMAGE_TYPE{
 	AUTO_IMAGE_TYPE,
 	STOCK_IMAGE_TYPE,
 	DEBUGGED_IMAGE_TYPE,
-	VIRTUALBOX_IMAGE_TYPE,
+	STOCK_VBOX_TYPE,
 };
 
 typedef struct analysisContext_t{
+	HANDLE toVMPipe;
 	IMAGE_TYPE curMode;
+	char *dmpFileName;
+	uint16_t curProcessor;
 	const unsigned char* physicalMemory;
 	uint64_t physicalMemorySize;
 	uint64_t p_DirectoryTableBase;
@@ -186,10 +190,11 @@ typedef struct analysisContext_t{
 	uint64_t KiWaitNever;
 	uint64_t KiWaitAlways;
 	uint64_t KdpDataBlockEncoded;
+	uint8_t SpecialRegister[4096]; //TODO:....
 }analysisContext_t;
 
 //functions 
-bool initKDServer(IMAGE_TYPE mode, wchar_t* fileName);
+bool initKDServer(analysisContext_t *context);
 bool startKDServer();
 void stopKDServer();
 

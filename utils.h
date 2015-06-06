@@ -5,11 +5,14 @@ int roundup16(int value);
 void dumpHexData(char *tmp, int len);
 void printHexData(char *tmp, int len);
 
-UINT8 Get8Pipe(HANDLE hPipe);
-UINT16 Get16Pipe(HANDLE hPipe);
-UINT32 Get32Pipe(HANDLE hPipe);
-
-BOOL CreateDBGNamedPipe(HANDLE *hPipe);
-BOOL OpenVMNamedPipe(HANDLE *hPipe);
+BOOL CreateNamedPipe(HANDLE *hPipe, char *pipeName);
+BOOL OpenNamedPipe(HANDLE *hPipe, char *pipeName);
+uint8_t Get8Pipe(HANDLE hPipe);
+uint16_t Get16Pipe(HANDLE hPipe);
+uint32_t Get32Pipe(HANDLE hPipe);
+uint64_t Get64Pipe(HANDLE hPipe);
+DWORD Put8Pipe(HANDLE hPipe, uint8_t data);
+DWORD Put32Pipe(HANDLE hPipe, uint8_t data);
+DWORD Put64Pipe(HANDLE hPipe, uint64_t data);
 
 #endif //__UTILS_H__

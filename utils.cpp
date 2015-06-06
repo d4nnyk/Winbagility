@@ -1,5 +1,6 @@
 #include "stdafx.h"
-#include "windows.h"
+#include <windows.h>
+#include <stdint.h>
 
 //TODO: macro
 int roundup16(int value){
@@ -35,68 +36,14 @@ void printHexData(char *tmp, int len){
 }
 
 
-
-UINT8 Get8Pipe(HANDLE hPipe){
-	UINT8 tmp;
-	DWORD avalaibleBytes;
-	while (1){
-		PeekNamedPipe(hPipe, NULL, 0, NULL, &avalaibleBytes, NULL);
-		if (avalaibleBytes >= 1){
-			DWORD numBytesRead = 0;
-			BOOL result = ReadFile(hPipe, &tmp, 1, &numBytesRead, NULL);
-			return tmp;
-		}
-		else{
-			Sleep(10);
-		}
-	}
-	return 0;
-}
-
-UINT16 Get16Pipe(HANDLE hPipe){
-	UINT16 tmp;
-	DWORD avalaibleBytes;
-	while (1){
-		PeekNamedPipe(hPipe, NULL, 0, NULL, &avalaibleBytes, NULL);
-		if (avalaibleBytes >= 2){
-			DWORD numBytesRead = 0;
-			BOOL result = ReadFile(hPipe, &tmp, 2, &numBytesRead, NULL);
-			return tmp;
-		}
-		else{
-			Sleep(10);
-		}
-	}
-	return 0;
-}
-
-UINT32 Get32Pipe(HANDLE hPipe){
-	UINT32 tmp;
-	DWORD avalaibleBytes;
-	while (1){
-		PeekNamedPipe(hPipe, NULL, 0, NULL, &avalaibleBytes, NULL);
-		if (avalaibleBytes >= 4){
-			DWORD numBytesRead = 0;
-			BOOL result = ReadFile(hPipe, &tmp, 4, &numBytesRead, NULL);
-			return tmp;
-		}
-		else{
-			Sleep(10);
-		}
-	}
-	return 0;
-}
-
-
-//Create Windbg->Proxy/Server Named Pipe
-BOOL CreateDBGNamedPipe(HANDLE *hPipe){ //TODO: name argument
-	*hPipe = CreateNamedPipe(
-		L"\\\\.\\pipe\\client",
+BOOL CreateNamedPipe(HANDLE *hPipe, char *pipeName){
+	*hPipe = CreateNamedPipeA(
+		pipeName,
 		PIPE_ACCESS_DUPLEX,
-		PIPE_TYPE_MESSAGE,
+		PIPE_TYPE_BYTE,
 		1,
-		65 * 1024,
-		65 * 1024,
+		1 * 1024,
+		1 * 1024,
 		1000,
 		NULL
 		);
@@ -105,7 +52,7 @@ BOOL CreateDBGNamedPipe(HANDLE *hPipe){ //TODO: name argument
 		system("pause");
 		return false;
 	}
-	printf("[Main] Client NamedPipe created ! Waiting Windbg to connect...\n");
+	printf("[Main] NamedPipe created ! Waiting connection...\n");
 	BOOL result = ConnectNamedPipe(*hPipe, NULL);
 	if (!result) {
 		printf("[Main] Failed to make connection on named pipe.\n");
@@ -117,10 +64,11 @@ BOOL CreateDBGNamedPipe(HANDLE *hPipe){ //TODO: name argument
 	return true;
 }
 
-BOOL OpenVMNamedPipe(HANDLE *hPipe){ //TODO: name argument
+
+BOOL OpenNamedPipe(HANDLE *hPipe, char *pipeName){
 	while (1){
-		*hPipe = CreateFile(
-			L"\\\\.\\pipe\\server",
+		*hPipe = CreateFileA(
+			pipeName,
 			GENERIC_READ | GENERIC_WRITE,
 			0,
 			NULL,
@@ -132,11 +80,11 @@ BOOL OpenVMNamedPipe(HANDLE *hPipe){ //TODO: name argument
 			break;
 
 		if (GetLastError() != ERROR_PIPE_BUSY){
-			printf("[Main] Waiting for server NamedPipe... \n");
+			printf("[Main] Waiting for NamedPipe... \n");
 			Sleep(1000);
 		}
 		else{
-			if (!WaitNamedPipe(L"\\\\.\\pipe\\server", 1000)){
+			if (!WaitNamedPipeA(pipeName, 1000)){
 				printf("[Main] Error when wait NamedPipe\n");
 			}
 		}
@@ -153,4 +101,62 @@ BOOL OpenVMNamedPipe(HANDLE *hPipe){ //TODO: name argument
 	}
 	printf("[Main] Connected to server NamedPipe !\n");
 	return true;
+}
+
+bool GetPipe(HANDLE hPipe, uint8_t* data, uint64_t size){
+	DWORD avalaibleBytes;
+	while (1){
+		PeekNamedPipe(hPipe, NULL, 0, NULL, &avalaibleBytes, NULL);
+		if (avalaibleBytes >= size){
+			DWORD numBytesRead = 0;
+			BOOL result = ReadFile(hPipe, data, size, &numBytesRead, NULL);
+			return true;
+		}
+		else{
+			Sleep(10);
+		}
+	}
+	return false;
+}
+
+uint8_t Get8Pipe(HANDLE hPipe){
+	uint8_t tmp;
+	GetPipe(hPipe, &tmp, sizeof(tmp));
+	return tmp;
+}
+
+uint16_t Get16Pipe(HANDLE hPipe){
+	uint16_t tmp;
+	GetPipe(hPipe, (uint8_t*)&tmp, sizeof(tmp));
+	return tmp;
+}
+
+uint32_t Get32Pipe(HANDLE hPipe){
+	uint32_t tmp;
+	GetPipe(hPipe, (uint8_t*)&tmp, sizeof(tmp));
+	return tmp;
+}
+
+uint64_t Get64Pipe(HANDLE hPipe){
+	uint64_t tmp;
+	GetPipe(hPipe, (uint8_t*)&tmp, sizeof(tmp));
+	return tmp;
+}
+
+DWORD PutPipe(HANDLE hPipe, uint8_t *data, uint64_t size){
+	DWORD numBytesWritten = 0;
+	BOOL result = WriteFile(hPipe, data, size, &numBytesWritten, NULL);
+	return numBytesWritten;
+}
+
+DWORD Put8Pipe(HANDLE hPipe, uint8_t data){
+	return PutPipe(hPipe, &data, sizeof(data));
+}
+
+DWORD Put32Pipe(HANDLE hPipe, uint32_t data){
+	return PutPipe(hPipe, (uint8_t*)&data, sizeof(data));
+}
+
+DWORD Put64Pipe(HANDLE hPipe, uint64_t data){
+	return PutPipe(hPipe, (uint8_t*)&data, sizeof(data));
 }

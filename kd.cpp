@@ -67,7 +67,7 @@ int ReadKDPipe(HANDLE hPipe, kd_packet_t *pktBuffer){
 		UINT16 type = Get16Pipe(hPipe);
 		printf("Unknown Leader %08x\n", leader);
 		printf("type: %04x\n", type);
-		system("pause");
+		//system("pause");
 	}
 	return ERR_PKT;
 }
@@ -95,10 +95,18 @@ bool ParseKDPkt(kd_packet_t* pkt){
 	printf("DataSize: %d\n", pkt->length);
 	printf("PacketID: %08x\n", pkt->id);
 	printf("Checksum: %08x\n", pkt->checksum);
-	printf("Checksum: %08x\n", ChecksumKD(pkt));
+	printf("Checksum(check): %08x\n", ChecksumKD(pkt));
 	if (pkt->length > 0){
 		printf("\t---------KD_CONTENT-----------\n");
 		printf("\tApiNumber %08x\n", pkt->ApiNumber);
+		if (pkt->type == KD_PACKET_TYPE_MANIP){
+			printf("\t\t---------KD_MANIP-----------\n");
+			printf("\t\tProcessorLevel: %04x\n", pkt->ManipulateState64.ProcessorLevel);
+			printf("\t\tProcessor: %04x\n", pkt->ManipulateState64.Processor);
+			printf("\t\tReturnStatus: %08x\n", pkt->ManipulateState64.ReturnStatus);
+			//dumpHexData((char*)pkt->ManipulateState64.data, pkt->length - 12);
+			printf("\t\t----------------------------\n");
+		}
 		switch (pkt->ApiNumber){
 		case DbgKdGetVersionApi:
 			printf("\t[DbgKdGetVersionApi]\n");
@@ -120,10 +128,6 @@ bool ParseKDPkt(kd_packet_t* pkt){
 			break;
 		case DbgKdReadVirtualMemoryApi:
 			printf("\t[DbgKdReadVirtualMemoryApi]\n");
-			pkt->ManipulateState64.ReadMemory.Unknown1 = 0;
-			pkt->ManipulateState64.ReadMemory.Unknown2 = 0;
-			pkt->ManipulateState64.ReadMemory.Unknown3 = 0;
-			pkt->checksum = ChecksumKD(pkt);
 			printf("\tTargetBaseAddress %p\n", pkt->ManipulateState64.ReadMemory.TargetBaseAddress);
 			printf("\tTransferCount %08x\n", pkt->ManipulateState64.ReadMemory.TransferCount);
 			printf("\tActualBytesRead %08x\n", pkt->ManipulateState64.ReadMemory.ActualBytesRead);
@@ -275,10 +279,14 @@ bool ParseKDPkt(kd_packet_t* pkt){
 			printf("\t[DbgKdLoadSymbolsStateChange]\n");
 			//THE FUCK ?
 			break;
+		case DbgKdSwitchProcessor:
+			printf("\t[DbgKdSwitchProcessor]\n");
+			break;
 		default: //Stop ALL !
-			stopKDServer();
-			printHexData((char*)pkt->data, pkt->length);
-			system("pause");
+			//stopKDServer();
+			//printHexData((char*)pkt->data, pkt->length);
+			dumpHexData((char*)pkt, pkt->length+16);
+			//system("pause");
 		}
 		printf("\t---------KD_CONTENT-----------\n");
 	}

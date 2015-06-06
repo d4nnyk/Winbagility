@@ -61,11 +61,12 @@ DWORD WINAPI client2server(LPVOID lpParam) {
 
 
 BOOL startKDProxy(){
-	OpenVMNamedPipe(&proxyVMPipe);
-	CreateDBGNamedPipe(&proxyDBGPipe);
+	printf("Start KD Proxy...\n");
+	OpenNamedPipe(&proxyVMPipe, "\\\\.\\pipe\\server");
+	CreateNamedPipe(&proxyDBGPipe,"\\\\.\\pipe\\client");
 
 
-	Sleep(1000);
+	Sleep(100);
 	proxyRunning = 1;
 
 	CreateThread(NULL, 0, server2client, NULL, 0, NULL);
