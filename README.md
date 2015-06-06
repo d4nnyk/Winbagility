@@ -1,6 +1,6 @@
 <pre>
 <b>Warning:</b>
-This is tool is <s>dirty</s> under construction, at this moment it will only work for Windows 8.1 x86-64 build 9600 !!
+This tool is <s>dirty</s> under construction, at this moment it will only work for Windows 8.1 x86-64 build 9600 !!
   
 <b>Winbagility</b>
 At this time it is just another crappy POC.
