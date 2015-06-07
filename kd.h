@@ -210,6 +210,10 @@ typedef struct _DBGKD_WRITE_MEMORY64
 	UINT64 TargetBaseAddress;
 	ULONG TransferCount;
 	ULONG ActualBytesWritten;
+	UINT64 Unknown1; //Don't know... But Useless Windbg is OK, if setted 0x00
+	UINT64 Unknown2; //Don't know... But Useless Windbg is OK, if setted 0x00
+	UINT64 Unknown3; //Don't know... But Useless Windbg is OK, if setted 0x00
+	UINT8 Data[0];
 } DBGKD_WRITE_MEMORY64, *PDBGKD_WRITE_MEMORY64;
 
 typedef struct _DBGKD_READ_MEMORY64
@@ -223,6 +227,15 @@ typedef struct _DBGKD_READ_MEMORY64
 	UINT8 Data[0];
 } DBGKD_READ_MEMORY64, *PDBGKD_READ_MEMORY64;
 
+//
+// query memory
+//
+typedef struct _DBGKD_QUERY_MEMORY{
+	UINT64	Address;
+	UINT64	Reserved;
+	UINT32	AddressSpace;
+	UINT32	Flags;
+}DBGKD_QUERY_MEMORY;
 
 typedef struct _DBGKD_MANIPULATE_STATE64
 {
@@ -253,11 +266,11 @@ typedef struct _DBGKD_MANIPULATE_STATE64
 		DBGKD_SEARCH_MEMORY SearchMemory;
 		DBGKD_GET_SET_BUS_DATA GetSetBusData;
 		DBGKD_FILL_MEMORY FillMemory;*/
-		//DBGKD_QUERY_MEMORY QueryMemory;
+		DBGKD_QUERY_MEMORY QueryMemory;
 		/*DBGKD_SWITCH_PARTITION SwitchPartition;*/
 		DBGKD_GET_REGISTER64 GetRegisters;
 		DBGKD_GET_VERSION_API64 GetVersion;
-		char data[1024]; //XXX: for testing
+		uint8_t data[0]; //XXX: for testing
 	};
 } DBGKD_MANIPULATE_STATE64, *PDBGKD_MANIPULATE_STATE64;
 
@@ -325,6 +338,22 @@ typedef struct kd_packet_t{
 		UINT8 data[0];
 	};
 }kd_packet_t;
+
+typedef struct _KSPECIAL_REGISTERS64
+{
+	uint64_t Cr0;
+	uint64_t Cr2;
+	uint64_t Cr3;
+	uint64_t Cr4;
+	uint64_t KernelDr0;
+	uint64_t KernelDr1;
+	uint64_t KernelDr2;
+	uint64_t KernelDr3;
+	uint64_t KernelDr6;
+	uint64_t KernelDr7;
+	//TODO: finish it !
+} KSPECIAL_REGISTERS64, *P_KSPECIAL_REGISTERS64;
+
 #pragma pack(pop)
 
 enum{

@@ -107,7 +107,7 @@ bool ParseKDPkt(kd_packet_t* pkt){
 			printf("\t\tProcessorLevel: %04x\n", pkt->ManipulateState64.ProcessorLevel);
 			printf("\t\tProcessor: %04x\n", pkt->ManipulateState64.Processor);
 			printf("\t\tReturnStatus: %08x\n", pkt->ManipulateState64.ReturnStatus);
-			//dumpHexData((char*)pkt->ManipulateState64.data, pkt->length - 12);
+			dumpHexData((char*)pkt->ManipulateState64.data, pkt->length - 12);
 			printf("\t\t----------------------------\n");
 		}
 		switch (pkt->ApiNumber){
@@ -168,12 +168,29 @@ bool ParseKDPkt(kd_packet_t* pkt){
 			break;
 		case DbgKdWriteControlSpaceApi:
 			printf("\t[DbgKdWriteControlSpaceApi]\n");
-			//TODO: 0 @KPCR, 1 @KPRCB, 2 @SpecialReagister, 3 @KTHREAD
 			printf("\tTargetBaseAddress(index) %p\n", pkt->ManipulateState64.WriteMemory.TargetBaseAddress);
 			printf("\tTransferCount %08x\n", pkt->ManipulateState64.WriteMemory.TransferCount);
 			printf("\tActualBytesWritten %08x\n", pkt->ManipulateState64.WriteMemory.ActualBytesWritten);
-			//TODO: where is the data !
-			//TODO: Do I really need this thing ?
+			switch (pkt->ManipulateState64.ReadMemory.TargetBaseAddress){
+			case 0: //@v_KPCR
+				break;
+			case 1: //@v_KPRCB
+				break;
+			case 2:{ //@SpecialRegisters
+				KSPECIAL_REGISTERS64 *tmpSpecialRegisters = (KSPECIAL_REGISTERS64*)pkt->ManipulateState64.WriteMemory.Data;
+				printf("\tKernelDr0 : 0x%p\n", tmpSpecialRegisters->KernelDr0);
+				printf("\tKernelDr1 : 0x%p\n", tmpSpecialRegisters->KernelDr1);
+				printf("\tKernelDr2 : 0x%p\n", tmpSpecialRegisters->KernelDr2);
+				printf("\tKernelDr3 : 0x%p\n", tmpSpecialRegisters->KernelDr3);
+				printf("\tKernelDr6 : 0x%p\n", tmpSpecialRegisters->KernelDr6);
+				printf("\tKernelDr7 : 0x%p\n", tmpSpecialRegisters->KernelDr7);
+				break;
+			}
+			case 3: //@v_KTHREAD
+				break;
+			default:
+				break;
+			};
 			break;
 		case DbgKdRestoreBreakPointApi:
 			printf("\t[DbgKdRestoreBreakPointApi]\n");
@@ -287,6 +304,13 @@ bool ParseKDPkt(kd_packet_t* pkt){
 			break;
 		case DbgKdSwitchProcessor:
 			printf("\t[DbgKdSwitchProcessor]\n");
+			break;
+		case DbgKdQueryMemoryApi:
+			printf("\t[DbgKdQueryMemoryApi]\n");
+			printf("\tAddress 0x%p\n", pkt->ManipulateState64.QueryMemory.Address);
+			printf("\tReserved 0x%p\n", pkt->ManipulateState64.QueryMemory.Reserved);
+			printf("\tAddressSpace 0x%08X\n", pkt->ManipulateState64.QueryMemory.AddressSpace);
+			printf("\tFlags 0x%08X\n", pkt->ManipulateState64.QueryMemory.Flags);
 			break;
 		default: //Stop ALL !
 			printf("\t[UNKNOWN]\n");

@@ -190,7 +190,6 @@ typedef struct analysisContext_t{
 	uint64_t KiWaitNever;
 	uint64_t KiWaitAlways;
 	uint64_t KdpDataBlockEncoded;
-	uint8_t SpecialRegister[4096]; //TODO:....
 }analysisContext_t;
 
 //functions 

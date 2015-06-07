@@ -9,6 +9,8 @@ enum{
 	PAUSE_VM,
 	RESUME_VM,
 	SEARCH_MEMORY,
+	CLEAR_BP,
+	SET_BP,
 };
 
 enum{
@@ -50,3 +52,6 @@ uint64_t FDP_readRegister(HANDLE toVMPipe, uint8_t registerId);
 uint8_t FDP_pause(HANDLE toVMPipe);
 uint8_t FDP_resume(HANDLE toVMPipe);
 uint64_t FDP_searchMemory(uint8_t *patternData, uint64_t patternSize, uint64_t startOffset, HANDLE toVMPipe);
+
+bool FDP_clearBP(uint8_t breakPointId, HANDLE toVMPipe);
+bool FDP_setBP(uint8_t breakPointId, uint64_t breakAddress, HANDLE toVMPipe);

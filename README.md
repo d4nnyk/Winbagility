@@ -5,15 +5,19 @@
   <b>Winbagility</b>
   At this time it is just another crappy POC.
   It gives the ability to open debugged and undebugged 8.1 x64 RAW  physical memory dump "directly" in WinDbg.
-  It gives the ability to debugged undebugged Windows 8.1 running in patched Vbox.
+  It gives the ability to debug undebugged Windows 8.1 running in patched Vbox.
 
   <b>How does it works ?</b>
-  A Kd server is implemented wich simulate a debugged Windows station that received commands thought named pipe.
-  
+  An initial anlysis is done to find and uncrypt nt!KdDebuggerDataBlock (dissector.cpp) and important Windows struct KPCR, KPRCB.
+  A Kd server (kdserver.cpp) is implemented wich simulate a debugged Windows station that received commands thought named pipe.
+  The Kd server give to Windbg unciphered structure, so windbg is happy there :)
+  Memory and register of guest aren't wrote, so patchguard is happy there too :) 
+
   <b>Why ?</b>
   Patchguard analysis,
   DRM analysis,
   Malicious malware analysis,
+  Forensic (Physical raw dump),
   Fun
 
   <b>How to use (PHYSICAL DUMP MODE)?</b>
@@ -47,13 +51,14 @@
   <s>Open Undebugged/Stock 8.1 x64 raw memory dump</s>
   <s>Integrate it in virtualbox</s>
   <s>Support "Go" Command</s>
-  Register read (some are missing ex: GDT...)
+  Register read (some are missing ex: GDTR, LDTR, IDTR...)
   Manage multiple CPU support
   Code cleaning, checks, tests, optimisations...
   Memory writes
   Hardware/Memory breakpoint with EPTViolation
   Other windows build support
   Code cleaning
+  Specific register read
   Register writes
   Code cleaning
   Arguments and all Bullshit

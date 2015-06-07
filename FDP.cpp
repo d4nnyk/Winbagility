@@ -6,8 +6,36 @@
 #include "utils.h"
 #include "FDP.h"
 
+typedef struct FDP_clearBP_req{
+	uint8_t cmdType;
+	uint8_t breakPointId;
+};
 
-//TODO: move !!!!
+typedef struct FDP_setBP_req{
+	uint8_t cmdType;
+	uint8_t breakPointId;
+	uint64_t breakAddress;
+};
+
+bool FDP_clearBP(uint8_t breakPointId, HANDLE toVMPipe){
+	FDP_clearBP_req tmpReq;
+	tmpReq.cmdType = CLEAR_BP;
+	tmpReq.breakPointId = breakPointId;
+	PutPipe(toVMPipe, (uint8_t*)&tmpReq, sizeof(tmpReq));
+	FlushFileBuffers(toVMPipe);
+	return Get8Pipe(toVMPipe);
+}
+
+bool FDP_setBP(uint8_t breakPointId, uint64_t breakAddress, HANDLE toVMPipe){
+	FDP_setBP_req tmpReq;
+	tmpReq.cmdType = SET_BP;
+	tmpReq.breakPointId = breakPointId;
+	tmpReq.breakAddress = breakAddress;
+	PutPipe(toVMPipe, (uint8_t*)&tmpReq, sizeof(tmpReq));
+	FlushFileBuffers(toVMPipe);
+	return Get8Pipe(toVMPipe);
+}
+
 uint8_t FDP_pause(HANDLE toVMPipe){
 	Put8Pipe(toVMPipe, PAUSE_VM);
 	FlushFileBuffers(toVMPipe);
