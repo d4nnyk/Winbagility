@@ -24,6 +24,7 @@ uint64_t WDBG_searchMemory(uint8_t *patternData, uint64_t patternSize, uint64_t 
 			return i;
 		}
 	}
+	return 0;
 }
 
 uint64_t LeftShift(uint64_t value, uint64_t count){ //TODO: ...
@@ -133,19 +134,9 @@ void parsePML4E(uint64_t base, analysisContext_t *context){
 }
 
 
-
-//Get potential virtual address from physical one.
-uint64_t FDP_physical_virtual(uint64_t physical_addr, analysisContext_t *context){
-	Put8Pipe(context->toVMPipe, PHYSICAL_VIRTUAL);
-	Put64Pipe(context->toVMPipe, physical_addr);
-	FlushFileBuffers(context->toVMPipe);
-	uint64_t result = Get64Pipe(context->toVMPipe);
-	return result;
-}
-
 uint64_t physical_virtual(uint64_t physical_addr, analysisContext_t *context){
 	if (context->curMode == STOCK_VBOX_TYPE){ //TODO: function pointer
-		return FDP_physical_virtual(physical_addr, context);
+		return FDP_physical_virtual(physical_addr, context->toVMPipe);
 	}
 	uint64_t offset = physical_addr & 0xFFF;
 	uint64_t i;

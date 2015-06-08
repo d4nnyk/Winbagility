@@ -9,8 +9,8 @@
 
   <b>How does it works ?</b>
   An initial anlysis is done to find and uncrypt nt!KdDebuggerDataBlock (dissector.cpp) and important Windows struct KPCR, KPRCB.
-  A Kd server (kdserver.cpp) is implemented wich simulate a debugged Windows station that received commands thought named pipe.
-  The Kd server give to Windbg unciphered structure, so windbg is happy there :)
+  A Kd server (kdserver.cpp) is implemented which simulate a debugged Windows station that received commands thought named pipe.
+  The Kd server give to Windbg deciphered structure, so windbg is happy there :)
   Memory and register of guest aren't wrote, so patchguard is happy there too :) 
 
   <b>Why ?</b>
@@ -35,7 +35,7 @@
   &lt;ExtraDataItem name="VBoxInternal/DBGC/Port" value="5000"/&gt;
   ...
   &lt;/ExtraData&gt;
-  3. Start it
+  3. Start the VM
   4. Start Winbagility
   3. Start Windbg and connect it to named pipe "\\.\pipe\client
 
@@ -51,10 +51,12 @@
   <s>Open Undebugged/Stock 8.1 x64 raw memory dump</s>
   <s>Integrate it in virtualbox</s>
   <s>Support "Go" Command</s>
-  Register read (some are missing ex: GDTR, LDTR, IDTR...)
+  <s>Register read (some are missing ex: GDTR, IDTR...)</s>
+  Memory writes
+  Process Switching
+  Register read (some are missing ex: XMM...)
   Manage multiple CPU support
   Code cleaning, checks, tests, optimisations...
-  Memory writes
   Hardware/Memory breakpoint with EPTViolation
   Other windows build support
   Code cleaning
@@ -65,6 +67,7 @@
   Code cleaning
   FDP(Fast Debugging Protocol) with SHM
   Virtual_Physical in FDP
+  Rewrite this README
   Profits !
 
   <b>Bonus:</b>

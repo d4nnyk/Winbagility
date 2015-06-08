@@ -9,7 +9,7 @@
 #include <string.h>
 #include <Windows.h>
 
-#pragma pack()
+#pragma pack(push)
 struct _DBGKD_DEBUG_DATA_HEADER64 {
 	uint64_t List[2];
 	uint32_t OwnerTag;

@@ -51,11 +51,6 @@ uint8_t FDP_resume(HANDLE toVMPipe){
 }
 
 uint64_t FDP_readRegister(HANDLE toVMPipe, uint8_t registerId){
-	//XXX: Trick to make "Go" command working
-	//TODO: Find how to pass GDT to Windbg !
-	if (registerId == CS_REGISTER){
-		return 0;
-	}
 	Put8Pipe(toVMPipe, READ_REGISTER_64);
 	Put8Pipe(toVMPipe, registerId);
 	FlushFileBuffers(toVMPipe);
@@ -72,4 +67,13 @@ uint64_t FDP_searchMemory(uint8_t *patternData, uint64_t patternSize, uint64_t s
 	Put64Pipe(toVMPipe, startOffset);
 
 	return Get64Pipe(toVMPipe);
+}
+
+//Get potential virtual address from physical one.
+uint64_t FDP_physical_virtual(uint64_t physical_addr, HANDLE toVMPipe){
+	Put8Pipe(toVMPipe, PHYSICAL_VIRTUAL);
+	Put64Pipe(toVMPipe, physical_addr);
+	FlushFileBuffers(toVMPipe);
+	uint64_t result = Get64Pipe(toVMPipe);
+	return result;
 }
