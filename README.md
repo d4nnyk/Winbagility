@@ -9,9 +9,9 @@
 
   <b>How does it works ?</b>
   An initial anlysis is done to find and uncrypt nt!KdDebuggerDataBlock (dissector.cpp) and important Windows struct KPCR, KPRCB.
-  A Kd server (kdserver.cpp) is implemented which simulate a debugged Windows station that received commands thought named pipe.
-  The Kd server give to Windbg deciphered structure, so windbg is happy there :)
-  Memory and register of guest aren't wrote, so patchguard is happy there too :) 
+  A Kd server (kdserver.cpp) is implemented wich simulate a debugged Windows station that received commands thought named pipe.
+  The Kd server give to Windbg unciphered structure, so windbg is happy there :)
+  Memory and register of guest aren't wrote, so patchguard is happy there too :)
 
   <b>Why ?</b>
   Patchguard analysis,
@@ -52,6 +52,7 @@
   <s>Integrate it in virtualbox</s>
   <s>Support "Go" Command</s>
   <s>Register read (some are missing ex: GDTR, IDTR...)</s>
+  <s>Memory search</s>
   Memory writes
   Process Switching
   Register read (some are missing ex: XMM...)
@@ -67,7 +68,6 @@
   Code cleaning
   FDP(Fast Debugging Protocol) with SHM
   Virtual_Physical in FDP
-  Rewrite this README
   Profits !
 
   <b>Bonus:</b>

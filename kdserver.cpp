@@ -14,6 +14,8 @@
 #include "dissectors.h"
 #include "FDP.h"
 
+#define STATUS_SUCCESS		0x000000000
+#define STATUS_UNSUCCESSFUL	0xC0000001L
 
 //Windbg->Proxy
 HANDLE DBGPipe; 
@@ -709,6 +711,38 @@ bool handleDbgKdGetContextApi(kd_packet_t *tmpKDPkt){
 	return true;
 }
 
+bool handleDbgKdSearchMemoryApi(kd_packet_t *tmpKDPkt){
+	char tmpBuffer[65 * 1024];
+	memset(tmpBuffer, 0, 65 * 1024);
+	kd_packet_t *tmpKDRespPkt = (kd_packet_t*)tmpBuffer;
+
+	tmpKDRespPkt->leader = KD_DATA_PACKET;
+	tmpKDRespPkt->type = KD_PACKET_TYPE_MANIP;
+	tmpKDRespPkt->length = 56;
+	tmpKDRespPkt->id = tmpKDPkt->id ^ 0x1;
+	tmpKDRespPkt->ManipulateState64.ApiNumber = DbgKdSearchMemoryApi;
+	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
+	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
+	tmpKDRespPkt->ManipulateState64.ReturnStatus = STATUS_UNSUCCESSFUL;
+	//Effective Search
+	uint64_t foundAddr;
+	bool isFound = WDBG_searchVirtualMemory(tmpKDPkt->ManipulateState64.SearchMemory.Data,
+		tmpKDPkt->ManipulateState64.SearchMemory.PatternLength,
+		tmpKDPkt->ManipulateState64.SearchMemory.SearchAddress,
+		tmpKDPkt->ManipulateState64.SearchMemory.SearchLength, &foundAddr, curContext);
+
+	if (isFound){
+		tmpKDRespPkt->ManipulateState64.ReturnStatus = STATUS_SUCCESS;
+		tmpKDRespPkt->ManipulateState64.SearchMemory.FoundAddress = foundAddr;
+	}
+	tmpKDRespPkt->ManipulateState64.SearchMemory.FoundAddress = foundAddr;
+	tmpKDRespPkt->ManipulateState64.SearchMemory.SearchLength = tmpKDPkt->ManipulateState64.SearchMemory.SearchLength;
+	tmpKDRespPkt->ManipulateState64.SearchMemory.PatternLength = tmpKDPkt->ManipulateState64.SearchMemory.PatternLength;
+
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
+	return true;
+}
+
 //Aka Windbg->VM
 DWORD WINAPI vmserver(LPVOID lpParam) {
 	char tmpBuffer[65 * 1024];
@@ -784,6 +818,10 @@ DWORD WINAPI vmserver(LPVOID lpParam) {
 				case DbgKdGetContextApi:
 					ackKDPkt(tmpKDPkt);
 					handleDbgKdGetContextApi(tmpKDPkt);
+					break;
+				case DbgKdSearchMemoryApi:
+					ackKDPkt(tmpKDPkt);
+					handleDbgKdSearchMemoryApi(tmpKDPkt);
 					break;
 				default:
 					printf("[DEBUG] Unknown ApiNumber %08x\n", tmpKDPkt->ApiNumber);

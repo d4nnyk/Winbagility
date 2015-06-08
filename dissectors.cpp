@@ -233,7 +233,7 @@ uint64_t findDebuggerDataList(uint64_t v_KDBG, analysisContext_t *context){
 	memcpy(DebuggerDataListPattern, &v_KDBG, 8);
 	memcpy(DebuggerDataListPattern + 8, &v_KDBG, 8);
 
-	return WDBG_searchMemory((uint8_t*)DebuggerDataListPattern, 16, 0, context);
+	return WDBG_searchPhysicalMemory((uint8_t*)DebuggerDataListPattern, 16, 0, context);
 }
 
 //TODO: utils.cpp
@@ -276,7 +276,7 @@ fffff803`451e0c86  48 d3 c2 48 33 d0 48 0f-ca                       H..H3.H..
 bool findPGkeys(analysisContext_t *context){
 	//Looking for nt!KdCopyDataBlock
 	uint8_t KdCopyDataBlockPattern[] = { 0x48, 0xD3, 0xC2, 0x48, 0x33, 0xD0, 0x48, 0x0F, 0xCA };
-	uint64_t p_KdCopyDataBlock = WDBG_searchMemory(KdCopyDataBlockPattern, sizeof(KdCopyDataBlockPattern), 0, context);
+	uint64_t p_KdCopyDataBlock = WDBG_searchPhysicalMemory(KdCopyDataBlockPattern, sizeof(KdCopyDataBlockPattern), 0, context);
 	printf("%p\n", p_KdCopyDataBlock);
 	uint64_t off_KdDebuggerDataBlock = readPhysical32(p_KdCopyDataBlock - 37, context);
 	printf("off_KdDebuggerDataBlock : %p\n", off_KdDebuggerDataBlock);
@@ -399,8 +399,6 @@ bool initialeAnalysis(analysisContext_t *context){
 	context->v_DebuggerDataList = physical_virtual(context->p_DebuggerDataList, context);
 	//context->v_DebuggerDataList = 0xFFFFF801CF2FF7B8; //XXX: speed up my tests !
 	printf("v_DebuggerDataList : %p\n", context->v_DebuggerDataList);
-
-	//readPhysical(context->SpecialRegister, 0xe0, context->p_KPRCB + 0x40 + 0x00, context);
 
 	return true;
 }

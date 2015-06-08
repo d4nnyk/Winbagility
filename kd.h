@@ -349,6 +349,17 @@ typedef struct _DBGKD_GET_CONTEXT{
 	CONTEXT64 Context;
 }DBGKD_GET_CONTEXT;
 
+typedef struct _DBGKD_SEARCH_MEMORY{
+	union{
+		uint64_t SearchAddress;
+		uint64_t FoundAddress;
+	};
+	uint64_t SearchLength;
+	uint32_t PatternLength;
+	uint32_t u[5];
+	uint8_t Data[0];
+} DBGKD_SEARCH_MEMORY, *PDBGKD_SEARCH_MEMORY;
+
 typedef struct _DBGKD_MANIPULATE_STATE64
 {
 	UINT32 ApiNumber;
@@ -374,9 +385,9 @@ typedef struct _DBGKD_MANIPULATE_STATE64
 		DBGKD_GET_INTERNAL_BREAKPOINT64 GetInternalBreakpoint;
 		DBGKD_GET_VERSION64 GetVersion64;
 		DBGKD_BREAKPOINTEX BreakPointEx;
-		DBGKD_READ_WRITE_MSR ReadWriteMsr;
+		DBGKD_READ_WRITE_MSR ReadWriteMsr;*/
 		DBGKD_SEARCH_MEMORY SearchMemory;
-		DBGKD_GET_SET_BUS_DATA GetSetBusData;
+		/*DBGKD_GET_SET_BUS_DATA GetSetBusData;
 		DBGKD_FILL_MEMORY FillMemory;*/
 		DBGKD_QUERY_MEMORY QueryMemory;
 		/*DBGKD_SWITCH_PARTITION SwitchPartition;*/
@@ -488,7 +499,6 @@ typedef struct _KSPECIAL_REGISTERS64
 	uint64_t MsrSyscallMask;
 	uint64_t Xcr0;
 } KSPECIAL_REGISTERS64, *P_KSPECIAL_REGISTERS64;
-
 #pragma pack(pop)
 
 enum{

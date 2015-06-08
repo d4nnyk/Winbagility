@@ -19,7 +19,7 @@ void dumpHexData(char *tmp, int len){
 	if (i % 16 != 0){
 		printf("\n");
 	}
-	printf("};");
+	printf("};\n");
 }
 
 void printHexData(char *tmp, int len){

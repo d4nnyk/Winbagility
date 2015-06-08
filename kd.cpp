@@ -12,7 +12,7 @@
 #include "kdserver.h"
 
 //TODO: configuration file
-uint8_t DEBUG_PKT = 1;
+uint8_t DEBUG_PKT = 0;
 
 uint32_t ChecksumKD(kd_packet_t *pkt){
 	uint32_t checksum = 0;
@@ -349,6 +349,16 @@ bool ParseKDPkt(kd_packet_t* pkt){
 			printf("\tReserved 0x%p\n", pkt->ManipulateState64.QueryMemory.Reserved);
 			printf("\tAddressSpace 0x%08X\n", pkt->ManipulateState64.QueryMemory.AddressSpace);
 			printf("\tFlags 0x%08X\n", pkt->ManipulateState64.QueryMemory.Flags);
+			break;
+		case DbgKdSearchMemoryApi:
+			printf("\t[DbgKdSearchMemoryApi]\n");
+			printf("\tSearchAddress 0x%p\n", pkt->ManipulateState64.SearchMemory.SearchAddress);
+			printf("\tSearchLength 0x%p\n", pkt->ManipulateState64.SearchMemory.SearchLength);
+			printf("\tPatternLength 0x%08x\n", pkt->ManipulateState64.SearchMemory.PatternLength);
+			if (pkt->length > 56){
+				printf("\tData :\n");
+				printHexData((char*)pkt->ManipulateState64.SearchMemory.Data, pkt->ManipulateState64.SearchMemory.PatternLength);
+			}
 			break;
 		default: //Stop ALL !
 			printf("\t[UNKNOWN]\n");

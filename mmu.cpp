@@ -13,8 +13,9 @@
 #include "utils.h"
 
 
+
 //TODO: bool !
-uint64_t WDBG_searchMemory(uint8_t *patternData, uint64_t patternSize, uint64_t startOffset, analysisContext_t *context){
+uint64_t WDBG_searchPhysicalMemory(uint8_t *patternData, uint64_t patternSize, uint64_t startOffset, analysisContext_t *context){
 	if (context->curMode == STOCK_VBOX_TYPE){
 		return FDP_searchMemory(patternData, patternSize, startOffset, context->toVMPipe);
 	}
@@ -244,4 +245,24 @@ void readMMU(uint8_t *dst, uint32_t size, uint64_t virtualAddr, analysisContext_
 			readPhysical(dst + readBytes, leftToRead, physicalAddress, context);
 		}
 	}
+}
+
+bool WDBG_searchVirtualMemory(uint8_t *patternData, uint64_t patternSize, uint64_t startVirtualAddress, uint64_t endOffset, uint64_t *foundVirtualAddress, analysisContext_t *context){
+	//TODO: FDP stub !!!
+	uint64_t curOffset = 0;
+	uint8_t tmpBuffer[PAGE_SIZE];
+	uint64_t leftToLook = endOffset - curOffset;
+	while (leftToLook){
+		readMMU(tmpBuffer, PAGE_SIZE, startVirtualAddress + curOffset, context); //TODO: optimisation no copy !
+		for (int i = 0; i < MIN(PAGE_SIZE - patternSize, leftToLook); i++){
+			if (memcmp(tmpBuffer + i, patternData, patternSize) == 0){
+				*foundVirtualAddress = startVirtualAddress + curOffset + i;
+				return true;
+			}
+		}
+		curOffset = curOffset + MIN(leftToLook, PAGE_SIZE - patternSize);
+		leftToLook = endOffset - curOffset;
+	}
+	*foundVirtualAddress = 0;
+	return false;
 }
