@@ -53,8 +53,10 @@
   <s>Support "Go" Command</s>
   <s>Register read (some are missing ex: GDTR, IDTR...)</s>
   <s>Memory search</s>
+  <s>Physical memory read</s>
+  <s>Pipe Reconnect</s>
   Memory writes
-  Process Switching
+  Process Switching (Not easy to do... Windbg inject a breakpoint and then "go"...)
   Register read (some are missing ex: XMM...)
   Manage multiple CPU support
   Code cleaning, checks, tests, optimisations...

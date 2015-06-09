@@ -244,7 +244,7 @@ BOOL handleDbgKdReadPhysicalMemoryApiPkt(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->ManipulateState64.ReadMemory.TransferCount = tmpKDPkt->ManipulateState64.ReadMemory.TransferCount;
 	tmpKDRespPkt->ManipulateState64.ReadMemory.ActualBytesRead = tmpKDPkt->ManipulateState64.ReadMemory.TransferCount;
 
-	//TODO: v_KDBG ???
+	//TODO: p_KDBG ???
 	readPhysical(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount, tmpKDPkt->ManipulateState64.ReadMemory.TargetBaseAddress, curContext);
 	sendKDPkt(DBGPipe, tmpKDRespPkt);
 
@@ -585,6 +585,7 @@ bool handleDbgKdSetContextApi(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
 	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
 
+
 	sendKDPkt(DBGPipe, tmpKDRespPkt);
 	return true;
 }
@@ -774,7 +775,6 @@ DWORD WINAPI vmserver(LPVOID lpParam) {
 	printf("Starting Fake-VM KD Server\n");
 	while (serverRunning == 1){
 		int pktType = ReadKDPipe(DBGPipe, tmpKDPkt);
-
 		if (pktType == FASTBREAK_PKT){ //TODO: return fast-break !
 			handleBreakPkt();
 		}else{
@@ -921,28 +921,35 @@ bool initKDServer(analysisContext_t *context){
 			return false;
 		}
 	}
+
+	WDBG_pause(context);
 	if (initialeAnalysis(context) == false){
 		printf("Unable to initiale analysis !\n");
 		return false;
 	}
-	
+	WDBG_resume(context);
+
 	printf("KD Server Initialisation OK !\n");
 	//system("pause");
 	return true;
 }
 
 bool startKDServer(){
-	CreateNamedPipe(&DBGPipe, "\\\\.\\pipe\\client");
-
-	Sleep(1000);
 	serverRunning = 1;
-
-	CreateThread(NULL, 0, vmserver, NULL, 0, NULL);
-
+	HANDLE lastThread = NULL;
 	//TODO: watchdog...
-	while (1){
-		Sleep(1000);
+	while (serverRunning){
+		HANDLE tmpPipe;
+		//Wait for a new client
+		CreateNamedPipe(&tmpPipe, "\\\\.\\pipe\\client");
+		if (lastThread){
+			TerminateThread(lastThread, 128);
+			DisconnectNamedPipe(DBGPipe);
+		}
+		DBGPipe = tmpPipe; //TODO: find a better way to do this !
+		lastThread = CreateThread(NULL, 0, vmserver, NULL, 0, NULL);
 	}
+	return true;
 }
 
 void stopKDServer(){

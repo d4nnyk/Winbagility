@@ -41,7 +41,7 @@ BOOL CreateNamedPipe(HANDLE *hPipe, char *pipeName){
 		pipeName,
 		PIPE_ACCESS_DUPLEX,
 		PIPE_TYPE_BYTE,
-		1,
+		100,
 		1 * 1024,
 		1 * 1024,
 		1000,
