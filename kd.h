@@ -457,7 +457,6 @@ typedef struct kd_packet_t{
 		UINT32 ApiNumber;
 		DBGKD_MANIPULATE_STATE64 ManipulateState64;
 		DBGKD_WAIT_STATE_CHANGE64 StateChange;
-
 		UINT8 data[0];
 	};
 }kd_packet_t;

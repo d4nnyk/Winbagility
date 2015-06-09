@@ -16,7 +16,7 @@
   <b>Why ?</b>
   Patchguard analysis,
   DRM analysis,
-  Malicious malware analysis,
+  Malicious driver analysis,
   Forensic (Physical raw dump),
   Fun
 

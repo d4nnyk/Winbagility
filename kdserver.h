@@ -169,6 +169,7 @@ typedef struct analysisContext_t{
 	const unsigned char* physicalMemory;
 	uint64_t physicalMemorySize;
 	uint64_t p_DirectoryTableBase;
+	uint64_t p_KiProcessBlock;
 	uint64_t p_KPCR;
 	uint64_t v_KPCR;
 	uint64_t p_KPRCB;

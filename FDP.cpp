@@ -6,16 +6,16 @@
 #include "utils.h"
 #include "FDP.h"
 
-typedef struct FDP_clearBP_req{
+typedef struct _FDP_clearBP_req{
 	uint8_t cmdType;
 	uint8_t breakPointId;
-};
+}FDP_clearBP_req;
 
-typedef struct FDP_setBP_req{
+typedef struct _FDP_setBP_req{
 	uint8_t cmdType;
 	uint8_t breakPointId;
 	uint64_t breakAddress;
-};
+}FDP_setBP_req;
 
 bool FDP_clearBP(uint8_t breakPointId, HANDLE toVMPipe){
 	FDP_clearBP_req tmpReq;
@@ -23,7 +23,7 @@ bool FDP_clearBP(uint8_t breakPointId, HANDLE toVMPipe){
 	tmpReq.breakPointId = breakPointId;
 	PutPipe(toVMPipe, (uint8_t*)&tmpReq, sizeof(tmpReq));
 	FlushFileBuffers(toVMPipe);
-	return Get8Pipe(toVMPipe);
+	return (Get8Pipe(toVMPipe) ==  1);
 }
 
 bool FDP_setBP(uint8_t breakPointId, uint64_t breakAddress, HANDLE toVMPipe){
@@ -33,7 +33,7 @@ bool FDP_setBP(uint8_t breakPointId, uint64_t breakAddress, HANDLE toVMPipe){
 	tmpReq.breakAddress = breakAddress;
 	PutPipe(toVMPipe, (uint8_t*)&tmpReq, sizeof(tmpReq));
 	FlushFileBuffers(toVMPipe);
-	return Get8Pipe(toVMPipe);
+	return (Get8Pipe(toVMPipe) == 1);
 }
 
 uint8_t FDP_pause(HANDLE toVMPipe){

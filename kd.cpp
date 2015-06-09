@@ -91,10 +91,10 @@ int ReadKDPipe(HANDLE hPipe, kd_packet_t *pktBuffer){
 DWORD WriteKDPipe(HANDLE hPipe, kd_packet_t *pkt){
 	DWORD numBytesWritten = 0;
 	BOOL result = WriteFile(hPipe, pkt, pkt->length + 16, &numBytesWritten, NULL);
+	char endOfData = 0xAA;
 
 	//END_OF_DATA
 	if (pkt->length > 0){
-		char endOfData = 0xAA;
 		WriteFile(hPipe, &endOfData, 1, NULL, NULL);
 	}
 
