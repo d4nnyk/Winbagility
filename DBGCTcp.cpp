@@ -206,12 +206,12 @@ static DECLCALLBACK(int) dbgcTcpConnection(RTSOCKET Sock, void *pvUser)
 #include <Windows.h>
 #include <stdio.h>
 
-BOOL CreateDBGNamedPipe(HANDLE *hPipe){ //TODO: name argument
+BOOL CreateNamedPipe(HANDLE *hPipe, char *pipeName){
 	*hPipe = CreateNamedPipeA(
-		"\\\\.\\pipe\\debugger",
+		pipeName,
 		PIPE_ACCESS_DUPLEX,
-		PIPE_TYPE_BYTE ,
-		1,
+		PIPE_TYPE_BYTE,
+		100,
 		1 * 1024,
 		1 * 1024,
 		1000,
@@ -231,45 +231,6 @@ BOOL CreateDBGNamedPipe(HANDLE *hPipe){ //TODO: name argument
 		return false;
 	}
 	printf("[Main] Client connected !\n");
-	return true;
-}
-
-
-BOOL OpenVMNamedPipe(HANDLE *hPipe){ //TODO: name argument
-	while (1){
-		*hPipe = CreateFileA(
-			"\\\\.\\pipe\\debugger",
-			GENERIC_READ | GENERIC_WRITE,
-			0,
-			NULL,
-			OPEN_EXISTING,
-			0,
-			NULL);
-
-		if (*hPipe != INVALID_HANDLE_VALUE)
-			break;
-
-		if (GetLastError() != ERROR_PIPE_BUSY){
-			printf("[Main] Waiting for NamedPipe... \n");
-			Sleep(1000);
-		}
-		else{
-			if (!WaitNamedPipeA("\\\\.\\pipe\\debugger", 1000)){
-				printf("[Main] Error when wait NamedPipe\n");
-			}
-		}
-	}
-	DWORD dwMode = PIPE_TYPE_BYTE;
-	BOOL result = SetNamedPipeHandleState(
-		*hPipe,
-		&dwMode,
-		NULL,
-		NULL);
-	if (!result){
-		system("pause");
-		return false;
-	}
-	printf("[Main] Connected to server NamedPipe !\n");
 	return true;
 }
 
@@ -335,6 +296,9 @@ enum{
 	PAUSE_VM,
 	RESUME_VM,
 	SEARCH_MEMORY,
+	CLEAR_BP,
+	SET_BP,
+	VIRTUAL_PHYSICAL,
 };
 
 enum{
@@ -391,6 +355,9 @@ uint64_t LeftShift(uint64_t value, uint64_t count){ //TODO: ...
 	return value;
 }
 
+#include <VBox/vmm/pgm.h>
+#include <VBox/vmm/mm.h>
+
 //Get potential virtual address from physical one.
 uint64_t physical_virtual(uint64_t physical_addr, PUVM pUVM){
 	DBGFREGVAL      Value;
@@ -398,7 +365,7 @@ uint64_t physical_virtual(uint64_t physical_addr, PUVM pUVM){
 	DBGFR3RegNmQuery(pUVM, 0, "cr3", &Value, &enmType); //TODO: argument 
 	uint64_t p_DirectoryTableBase = Value.u64;
 				
-	uint64_t PAGE_SIZE = 4096;
+	//uint64_t PAGE_SIZE = 4096;
 	uint64_t physicalMemorySize = 2147483648; //TODO:...
 	uint64_t offset = physical_addr & 0xFFF;
 	uint64_t i;
@@ -436,18 +403,130 @@ uint64_t physical_virtual(uint64_t physical_addr, PUVM pUVM){
 	return 0;
 }
 
-DWORD WINAPI debuggerServer(LPVOID lpParam) {
+uint64_t readHCPhys64(uint64_t HCPhys, PUVM pUVM){
+	uint64_t *tmpPage = (uint64_t*)MMPagePhys2Page2(pUVM, (HCPhys & 0x000FFFFFFFFFF000));
+	uint64_t offset = (HCPhys & 0xFFF)/8;
+	return tmpPage[offset];
+}
+
+uint8_t writeHCPhys64(uint64_t HCPhys, PUVM pUVM, uint64_t newValue){
+	uint64_t *tmpPage = (uint64_t*)MMPagePhys2Page2(pUVM, (HCPhys & 0x000FFFFFFFFFF000));
+	uint64_t offset = (HCPhys & 0xFFF)/8;
+	tmpPage[offset] = newValue;
+	return 1;
+}
+
+uint64_t GCPhys2HCPhys(uint64_t virtual_addr, PUVM pUVM){
+	uint64_t PML4E_index = (virtual_addr & 0x0000FF8000000000) >> (9 + 9 + 9 + 12);
+	uint64_t PDPE_index = (virtual_addr & 0x0000007FC0000000) >> (9 + 9 + 12);
+	uint64_t PDE_index = (virtual_addr & 0x000000003FE00000) >> (9 + 12);
+	uint64_t PTE_index = (virtual_addr & 0x00000000001FF000) >> (12);
+	uint64_t P_offset = (virtual_addr & 0x0000000000000FFF);
+	
+	uint64_t physicalMemorySize = 2147483648; //TODO:...
+
+	PVMCPU pVCpu = VMMR3GetCpuByIdU(pUVM, 0);
+	RTHCPHYS HCPhysEPTCR3 = PGMGetHyperCR3(pVCpu);
+	
+	uint64_t PDPE_base = readHCPhys64(HCPhysEPTCR3 + (PML4E_index * 8), pUVM) & 0x0000FFFFFFFFF000;
+	printf("PDPE_base %016lx\n", PDPE_base);
+	if (PDPE_base == 0
+		/*|| PDPE_base > physicalMemorySize - PAGE_SIZE*/){
+		return 0;
+	}
+
+	uint64_t PDE_base = readHCPhys64(PDPE_base + (PDPE_index * 8), pUVM) & 0x0000FFFFFFFFF000;
+	printf("PDE_base %016lx\n", PDE_base);
+	if (PDE_base == 0
+		/*|| PDE_base > physicalMemorySize - PAGE_SIZE*/){
+		return 0;
+	}
+
+
+	uint64_t tmp = readHCPhys64(PDE_base + (PDE_index * 8), pUVM);
+	//writeHCPhys64(PDE_base + (PDE_index * 8), pUVM, (tmp & 0xFFFFFFFFFFFFFFF0));
+	//tmp = readHCPhys64(PDE_base + (PDE_index * 8), pUVM);
+	printf("tmp %p\n", tmp);
+	
+	uint64_t PTE_base = tmp & 0x0000FFFFFFFFF000;
+	printf("PTE_base %016lx\n", PTE_base);
+	if (PTE_base == 0
+		/*|| PTE_base > physicalMemorySize - PAGE_SIZE*/){
+		return 0;
+	}
+	if (tmp & 0x0000000000000080){ //This page is a large one (2M) !
+		uint64_t tmpPhysical = ((tmp & 0x0000000FFFE00000) | (virtual_addr & 0x00000000001FFFFF));
+		if (tmpPhysical == 0){
+			return 0;
+		}
+		return tmpPhysical;
+	}
+
+	uint64_t P_base = readHCPhys64(PTE_base + (PTE_index * 8), pUVM) & 0x0000FFFFFFFFF000;
+	uint64_t full = readHCPhys64(PTE_base + (PTE_index * 8), pUVM);
+	printf("P_base %p\n", full);
+	if (P_base == 0
+		/*|| P_base > physicalMemorySize - PAGE_SIZE*/){
+		return 0;
+	}
+
+	return (P_base | P_offset);
+}
+
+
+HANDLE DBGPipe; //TODO...
+
+void dumpHexData(char *tmp, int len){
+	
+	printf("char pkt[] = { //%p\n", tmp);
+	int i;
+	for (i = 0; i<len; i++){
+		//tmp[i] = 0;
+		printf("0x%02x, ", tmp[i] & 0xFF);
+		if (i % 16 == 15){
+			printf("\n");
+		}
+	}
+	if (i % 16 != 0){
+		printf("\n");
+	}
+	printf("};\n");
+}
+
+DWORD WINAPI debugWorker(LPVOID lpParam) {
 	PUVM pUVM = (PUVM)lpParam;
-	HANDLE hPipe;
-	CreateDBGNamedPipe(&hPipe);
+	PVMCPU pVCpu = VMMR3GetCpuByIdU(pUVM, 0);
+	HANDLE hPipe = DBGPipe;
+	
 	while (1){
 		uint8_t cmd = Get8Pipe(hPipe);
 		switch (cmd)
 		{
+		case CLEAR_BP:{
+			uint8_t breakPointId = Get8Pipe(hPipe);
+			printf("CLEAR_BP %d\n", breakPointId);
+			//TODO: reset to rwx !
+			//PGMShwMakePageReadonly2(pUVM, 0xFFFFF801CF45F0e4, 0);
+
+			//GCPtr 0xFFFFF801CF45F0e4 => GCPhys 0x000000000205F0E4
+			//uint64_t testtest = GCPhys2HCPhys(0x000000000205F0E4, pUVM);
+			
+			Put8Pipe(hPipe, true);
+			FlushFileBuffers(hPipe);
+			break;
+		}
 		case PHYSICAL_VIRTUAL:{
 			uint64_t physicalAddress = Get64Pipe(hPipe);
 			uint64_t virtualAddress = physical_virtual(physicalAddress, pUVM);
 			Put64Pipe(hPipe, virtualAddress);
+			FlushFileBuffers(hPipe);
+			break;
+		}
+		case VIRTUAL_PHYSICAL:{
+			uint64_t virtualAddr = Get64Pipe(hPipe);
+			uint64_t physicalAddr = 0;
+			PGMGstGetPage(pVCpu, virtualAddr, 0, &physicalAddr);
+			Put64Pipe(hPipe, (physicalAddr | (virtualAddr & 0xFFF)));
 			FlushFileBuffers(hPipe);
 			break;
 		}
@@ -548,6 +627,22 @@ DWORD WINAPI debuggerServer(LPVOID lpParam) {
 	return 0;
 }
 
+DWORD WINAPI debuggerServer(LPVOID lpParam){
+	PUVM pUVM = (PUVM)lpParam;
+	
+	HANDLE tmpPipe;
+	HANDLE lastThread = NULL;
+	while(1){
+		//Wait for a new client
+		CreateNamedPipe(&tmpPipe, "\\\\.\\pipe\\debugger");
+		if (lastThread){
+			TerminateThread(lastThread, 128);
+			DisconnectNamedPipe(DBGPipe);
+		}
+		DBGPipe = tmpPipe; //TODO: find a better way to do this !
+		lastThread = CreateThread(NULL, 0, debugWorker, pUVM, 0, NULL);
+	}
+}
 
 /**
  * Spawns a new thread with a TCP based debugging console service.
@@ -560,7 +655,7 @@ DBGDECL(int)    DBGCTcpCreate(PUVM pUVM, void **ppvData)
 {
 	HANDLE thread = CreateThread(NULL, 0, debuggerServer, pUVM, 0, NULL);
 	if (thread) {
-		SetThreadPriority(thread, THREAD_PRIORITY_HIGHEST);
+		//SetThreadPriority(thread, THREAD_PRIORITY_HIGHEST);
 	}
   
   

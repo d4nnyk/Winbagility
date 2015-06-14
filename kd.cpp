@@ -12,7 +12,7 @@
 #include "kdserver.h"
 
 //TODO: configuration file
-uint8_t DEBUG_PKT = 1;
+uint8_t DEBUG_PKT = 0;
 
 uint32_t ChecksumKD(kd_packet_t *pkt){
 	uint32_t checksum = 0;

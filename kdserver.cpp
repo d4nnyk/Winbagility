@@ -100,8 +100,8 @@ BOOL handleBreakPkt(){
 	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionAddress = 0x0000000045158890;
 	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.NumberParameters = 0x00000001;
 	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.u1 = 0xffff4e51;
-	tmpKDRespPkt->StateChange.Exception.FirstChance = 0x00000001;
-	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionInformation[0] = 0x0000000000000000;
+	tmpKDRespPkt->StateChange.Exception.FirstChance = 0x00000001;*/
+	/*tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionInformation[0] = 0x0000000000000000;
 	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionInformation[1] = 0x000000004579b500;
 	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionInformation[2] = 0x0000000046abfd98;
 	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionInformation[3] = 0x0000000000000001;

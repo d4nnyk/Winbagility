@@ -55,8 +55,9 @@
   <s>Memory search</s>
   <s>Physical memory read</s>
   <s>Pipe Reconnect</s>
+  <s>Virtual_Physical in FDP</s>
   Memory writes
-  Process Switching (Not easy to do... Windbg inject a breakpoint and then "go"...)
+  Process Switching (Not easy to do... Windbg inject a SW breakpoint and then "go"...)
   Register read (some are missing ex: XMM...)
   Manage multiple CPU support
   Code cleaning, checks, tests, optimisations...
@@ -69,7 +70,6 @@
   Arguments and all Bullshit
   Code cleaning
   FDP(Fast Debugging Protocol) with SHM
-  Virtual_Physical in FDP
   Profits !
 
   <b>Bonus:</b>

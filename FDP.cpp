@@ -77,3 +77,12 @@ uint64_t FDP_physical_virtual(uint64_t physical_addr, HANDLE toVMPipe){
 	uint64_t result = Get64Pipe(toVMPipe);
 	return result;
 }
+
+//Get physical address from virtual one.
+uint64_t FDP_virtual_physical(uint64_t virtual_addr, HANDLE toVMPipe){
+	Put8Pipe(toVMPipe, VIRTUAL_PHYSICAL);
+	Put64Pipe(toVMPipe, virtual_addr);
+	FlushFileBuffers(toVMPipe);
+	uint64_t result = Get64Pipe(toVMPipe);
+	return result;
+}

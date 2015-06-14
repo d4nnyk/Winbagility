@@ -177,6 +177,9 @@ uint64_t physical_virtual(uint64_t physical_addr, analysisContext_t *context){
 
 
 uint64_t virtual_physical(uint64_t virtual_addr, analysisContext_t *context){
+	if (context->curMode == STOCK_VBOX_TYPE){ //TODO: function pointer
+		return FDP_virtual_physical(virtual_addr, context->toVMPipe);
+	}
 	uint64_t PML4E_index = (virtual_addr & 0x0000FF8000000000) >> (9 + 9 + 9 + 12);
 	uint64_t PDPE_index = (virtual_addr & 0x0000007FC0000000) >> (9 + 9 + 12);
 	uint64_t PDE_index = (virtual_addr & 0x000000003FE00000) >> (9 + 12);

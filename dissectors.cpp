@@ -314,7 +314,6 @@ bool findPGkeys(analysisContext_t *context){
 	printf("p_KiWaitAlways : %p\n", p_KiWaitAlways);
 
 	//Retrieve keys value
-	//..PGKeys_t *keys = (PGKeys_t *)malloc(sizeof(PGKeys_t));
 	context->KiWaitNever = readPhysical64(p_KiWaitNever, context);
 	printf("keys->KiWaitNever : %p\n", context->KiWaitNever);
 	context->KiWaitAlways = readPhysical64(p_KiWaitAlways, context);
@@ -407,6 +406,9 @@ bool initialeAnalysis(analysisContext_t *context){
 	context->v_DebuggerDataList = physical_virtual(context->p_DebuggerDataList, context);
 	//context->v_DebuggerDataList = 0xFFFFF801CF2FF7B8; //XXX: speed up my tests !
 	printf("v_DebuggerDataList : %p\n", context->v_DebuggerDataList);
+
+	uint64_t test = virtual_physical(0xFFFFF801CF45F0e4, context);
+	printf("0xFFFFF801CF45F0e4 --> %p\n", test);
 
 	return true;
 }
