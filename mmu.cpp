@@ -46,6 +46,9 @@ bool readPhysical(uint8_t *dstBuffer, uint64_t size, uint64_t physicalAdress, an
 			dstBuffer[i] = Get8Pipe(context->toVMPipe);
 		}
 	}else{
+		if (physicalAdress > context->physicalMemorySize){
+			return false;
+		}
 		memcpy(dstBuffer, context->physicalMemory + physicalAdress, size);
 	}
 	return true;

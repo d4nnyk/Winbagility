@@ -129,7 +129,6 @@ BOOL handleBreakPkt(){
 	tmpKDRespPkt->StateChange.ControlReport.SegEs = (uint16_t)WDBG_getRegister(curContext, ES_REGISTER);
 	tmpKDRespPkt->StateChange.ControlReport.SegFs = (uint16_t)WDBG_getRegister(curContext, FS_REGISTER);
 
-
 	sendKDPkt(DBGPipe, tmpKDRespPkt);
 	return true;
 }
@@ -155,7 +154,6 @@ BOOL ackKDPkt(kd_packet_t *tmpKDPkt){
 	memset(tmpBuffer, 0, 65 * 1024);
 	kd_packet_t *tmpKDRespPkt = (kd_packet_t*)tmpBuffer;
 
-	//TODO: ACK Function!
 	tmpKDRespPkt->leader = KD_CONTROL_PACKET;
 	tmpKDRespPkt->type = KD_PACKET_TYPE_ACK;
 	tmpKDRespPkt->length = 0x00;
@@ -245,7 +243,10 @@ BOOL handleDbgKdReadPhysicalMemoryApiPkt(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->ManipulateState64.ReadMemory.ActualBytesRead = tmpKDPkt->ManipulateState64.ReadMemory.TransferCount;
 
 	//TODO: p_KDBG ???
-	readPhysical(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount, tmpKDPkt->ManipulateState64.ReadMemory.TargetBaseAddress, curContext);
+	bool result = readPhysical(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount, tmpKDPkt->ManipulateState64.ReadMemory.TargetBaseAddress, curContext);
+	if (result == false){
+		tmpKDRespPkt->ManipulateState64.ReturnStatus = STATUS_UNSUCCESSFUL;
+	}
 	sendKDPkt(DBGPipe, tmpKDRespPkt);
 
 	return true;
