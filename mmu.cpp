@@ -13,8 +13,9 @@
 #include "utils.h"
 
 
+
 //TODO: bool !
-uint64_t WDBG_searchMemory(uint8_t *patternData, uint64_t patternSize, uint64_t startOffset, analysisContext_t *context){
+uint64_t WDBG_searchPhysicalMemory(uint8_t *patternData, uint64_t patternSize, uint64_t startOffset, analysisContext_t *context){
 	if (context->curMode == STOCK_VBOX_TYPE){
 		return FDP_searchMemory(patternData, patternSize, startOffset, context->toVMPipe);
 	}
@@ -24,6 +25,7 @@ uint64_t WDBG_searchMemory(uint8_t *patternData, uint64_t patternSize, uint64_t 
 			return i;
 		}
 	}
+	return 0;
 }
 
 uint64_t LeftShift(uint64_t value, uint64_t count){ //TODO: ...
@@ -44,6 +46,9 @@ bool readPhysical(uint8_t *dstBuffer, uint64_t size, uint64_t physicalAdress, an
 			dstBuffer[i] = Get8Pipe(context->toVMPipe);
 		}
 	}else{
+		if (physicalAdress > context->physicalMemorySize){
+			return false;
+		}
 		memcpy(dstBuffer, context->physicalMemory + physicalAdress, size);
 	}
 	return true;
@@ -133,19 +138,9 @@ void parsePML4E(uint64_t base, analysisContext_t *context){
 }
 
 
-
-//Get potential virtual address from physical one.
-uint64_t FDP_physical_virtual(uint64_t physical_addr, analysisContext_t *context){
-	Put8Pipe(context->toVMPipe, PHYSICAL_VIRTUAL);
-	Put64Pipe(context->toVMPipe, physical_addr);
-	FlushFileBuffers(context->toVMPipe);
-	uint64_t result = Get64Pipe(context->toVMPipe);
-	return result;
-}
-
 uint64_t physical_virtual(uint64_t physical_addr, analysisContext_t *context){
 	if (context->curMode == STOCK_VBOX_TYPE){ //TODO: function pointer
-		return FDP_physical_virtual(physical_addr, context);
+		return FDP_physical_virtual(physical_addr, context->toVMPipe);
 	}
 	uint64_t offset = physical_addr & 0xFFF;
 	uint64_t i;
@@ -185,6 +180,9 @@ uint64_t physical_virtual(uint64_t physical_addr, analysisContext_t *context){
 
 
 uint64_t virtual_physical(uint64_t virtual_addr, analysisContext_t *context){
+	if (context->curMode == STOCK_VBOX_TYPE){ //TODO: function pointer
+		return FDP_virtual_physical(virtual_addr, context->toVMPipe);
+	}
 	uint64_t PML4E_index = (virtual_addr & 0x0000FF8000000000) >> (9 + 9 + 9 + 12);
 	uint64_t PDPE_index = (virtual_addr & 0x0000007FC0000000) >> (9 + 9 + 12);
 	uint64_t PDE_index = (virtual_addr & 0x000000003FE00000) >> (9 + 12);
@@ -253,4 +251,24 @@ void readMMU(uint8_t *dst, uint32_t size, uint64_t virtualAddr, analysisContext_
 			readPhysical(dst + readBytes, leftToRead, physicalAddress, context);
 		}
 	}
+}
+
+bool WDBG_searchVirtualMemory(uint8_t *patternData, uint64_t patternSize, uint64_t startVirtualAddress, uint64_t endOffset, uint64_t *foundVirtualAddress, analysisContext_t *context){
+	//TODO: FDP stub !!!
+	uint64_t curOffset = 0;
+	uint8_t tmpBuffer[PAGE_SIZE];
+	uint64_t leftToLook = endOffset - curOffset;
+	while (leftToLook){
+		readMMU(tmpBuffer, PAGE_SIZE, startVirtualAddress + curOffset, context); //TODO: optimisation no copy !
+		for (int i = 0; i < MIN(PAGE_SIZE - patternSize, leftToLook); i++){
+			if (memcmp(tmpBuffer + i, patternData, patternSize) == 0){
+				*foundVirtualAddress = startVirtualAddress + curOffset + i;
+				return true;
+			}
+		}
+		curOffset = curOffset + MIN(leftToLook, PAGE_SIZE - patternSize);
+		leftToLook = endOffset - curOffset;
+	}
+	*foundVirtualAddress = 0;
+	return false;
 }

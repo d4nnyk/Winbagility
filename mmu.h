@@ -31,5 +31,6 @@ uint64_t virtual_physical(uint64_t virtual_addr, analysisContext_t *context);
 
 
 void readMMU(uint8_t *dst, uint32_t size, uint64_t virtualAddr, analysisContext_t *context);
-uint64_t WDBG_searchMemory(uint8_t *patternData, uint64_t patternSize, uint64_t startOffset, analysisContext_t *context);
+uint64_t WDBG_searchPhysicalMemory(uint8_t *patternData, uint64_t patternSize, uint64_t startOffset, analysisContext_t *context);
+bool WDBG_searchVirtualMemory(uint8_t *patternData, uint64_t patternSize, uint64_t startVirtualAddress, uint64_t endOffset, uint64_t *foundVirtualAddress, analysisContext_t *context);
 #endif //__MMU_H__

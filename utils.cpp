@@ -19,7 +19,7 @@ void dumpHexData(char *tmp, int len){
 	if (i % 16 != 0){
 		printf("\n");
 	}
-	printf("};");
+	printf("};\n");
 }
 
 void printHexData(char *tmp, int len){
@@ -41,7 +41,7 @@ BOOL CreateNamedPipe(HANDLE *hPipe, char *pipeName){
 		pipeName,
 		PIPE_ACCESS_DUPLEX,
 		PIPE_TYPE_BYTE,
-		1,
+		100,
 		1 * 1024,
 		1 * 1024,
 		1000,
@@ -109,7 +109,7 @@ bool GetPipe(HANDLE hPipe, uint8_t* data, uint64_t size){
 		PeekNamedPipe(hPipe, NULL, 0, NULL, &avalaibleBytes, NULL);
 		if (avalaibleBytes >= size){
 			DWORD numBytesRead = 0;
-			BOOL result = ReadFile(hPipe, data, size, &numBytesRead, NULL);
+			BOOL result = ReadFile(hPipe, data, (uint32_t)size, &numBytesRead, NULL);
 			return true;
 		}
 		else{
@@ -145,7 +145,7 @@ uint64_t Get64Pipe(HANDLE hPipe){
 
 DWORD PutPipe(HANDLE hPipe, uint8_t *data, uint64_t size){
 	DWORD numBytesWritten = 0;
-	BOOL result = WriteFile(hPipe, data, size, &numBytesWritten, NULL);
+	BOOL result = WriteFile(hPipe, data, (uint32_t)size, &numBytesWritten, NULL);
 	return numBytesWritten;
 }
 

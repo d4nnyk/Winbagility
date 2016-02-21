@@ -73,7 +73,7 @@
 #define KD_PACKET_TYPE_STATE_CHANGE 7
 #define KD_PACKET_TYPE_IO		11
 
-#pragma pack()
+#pragma pack(push)
 typedef struct _AMD64_DBGKD_CONTROL_SET
 {
 	ULONG TraceFlag;
@@ -179,6 +179,113 @@ typedef struct _DBGKD_GET_REGISTER64{
 	ULONG64 DATA[122];
 }DBGKD_GET_REGISTER64, *PBGKD_GET_REGISTER64;
 
+//https://msdn.microsoft.com/fr-fr/library/windows/desktop/ms679284%28v=vs.85%29.aspx
+typedef struct DECLSPEC_ALIGN(16) _CONTEXT64{
+	//
+	// Register parameter home addresses.
+	//
+	// N.B. These fields are for convience - they could be used to extend the
+	// context record in the future.
+	//
+	DWORD64 P1Home;
+	DWORD64 P2Home;
+	DWORD64 P3Home;
+	DWORD64 P4Home;
+	DWORD64 P5Home;
+	DWORD64 P6Home;
+
+	//
+	// Control flags.
+	//
+	DWORD ContextFlags;
+	DWORD MxCsr;
+	//
+	// Segment Registers and processor flags.
+	//
+	WORD SegCs;
+	WORD SegDs;
+	WORD SegEs;
+	WORD SegFs;
+	WORD SegGs;
+	WORD SegSs;
+	DWORD EFlags;
+	//
+	// Debug registers
+	//
+	DWORD64 Dr0;
+	DWORD64 Dr1;
+	DWORD64 Dr2;
+	DWORD64 Dr3;
+	DWORD64 Dr6;
+	DWORD64 Dr7;
+	//
+	// Integer registers.
+	//
+	DWORD64 Rax;
+	DWORD64 Rcx;
+	DWORD64 Rdx;
+	DWORD64 Rbx;
+	DWORD64 Rsp;
+	DWORD64 Rbp;
+	DWORD64 Rsi;
+	DWORD64 Rdi;
+	DWORD64 R8;
+	DWORD64 R9;
+	DWORD64 R10;
+	DWORD64 R11;
+	DWORD64 R12;
+	DWORD64 R13;
+	DWORD64 R14;
+	DWORD64 R15;
+
+	//
+	// Program counter.
+	//
+	DWORD64 Rip;
+
+	//
+	// Floating point state.
+	//
+	union {
+		XMM_SAVE_AREA32 FltSave;
+		struct {
+			M128A Header[2];
+			M128A Legacy[8];
+			M128A Xmm0;
+			M128A Xmm1;
+			M128A Xmm2;
+			M128A Xmm3;
+			M128A Xmm4;
+			M128A Xmm5;
+			M128A Xmm6;
+			M128A Xmm7;
+			M128A Xmm8;
+			M128A Xmm9;
+			M128A Xmm10;
+			M128A Xmm11;
+			M128A Xmm12;
+			M128A Xmm13;
+			M128A Xmm14;
+			M128A Xmm15;
+
+		} DUMMYSTRUCTNAME;
+	} DUMMYUNIONNAME;
+
+	//
+	// Vector registers.
+	//
+	M128A VectorRegister[26];
+	DWORD64 VectorControl;
+	//
+	// Special debug control registers.
+	//
+	DWORD64 DebugControl;
+	DWORD64 LastBranchToRip;
+	DWORD64 LastBranchFromRip;
+	DWORD64 LastExceptionToRip;
+	DWORD64 LastExceptionFromRip;
+} CONTEXT64, *PCONTEXT64;
+
 typedef struct _DBGKD_RESTORE_BREAKPOINT
 {
 	ULONG BreakPointHandle;
@@ -237,6 +344,22 @@ typedef struct _DBGKD_QUERY_MEMORY{
 	UINT32	Flags;
 }DBGKD_QUERY_MEMORY;
 
+typedef struct _DBGKD_GET_CONTEXT{
+	uint64_t u[5];
+	CONTEXT64 Context;
+}DBGKD_GET_CONTEXT;
+
+typedef struct _DBGKD_SEARCH_MEMORY{
+	union{
+		uint64_t SearchAddress;
+		uint64_t FoundAddress;
+	};
+	uint64_t SearchLength;
+	uint32_t PatternLength;
+	uint32_t u[5];
+	uint8_t Data[0];
+} DBGKD_SEARCH_MEMORY, *PDBGKD_SEARCH_MEMORY;
+
 typedef struct _DBGKD_MANIPULATE_STATE64
 {
 	UINT32 ApiNumber;
@@ -248,7 +371,7 @@ typedef struct _DBGKD_MANIPULATE_STATE64
 	{
 		DBGKD_READ_MEMORY64 ReadMemory;
 		DBGKD_WRITE_MEMORY64 WriteMemory;
-		/*DBGKD_GET_CONTEXT GetContext;*/
+		DBGKD_GET_CONTEXT GetContext;
 		//DBGKD_SET_CONTEXT SetContext;
 		//DBGKD_WRITE_BREAKPOINT64 WriteBreakPoint;
 		DBGKD_RESTORE_BREAKPOINT RestoreBreakPoint;
@@ -262,9 +385,9 @@ typedef struct _DBGKD_MANIPULATE_STATE64
 		DBGKD_GET_INTERNAL_BREAKPOINT64 GetInternalBreakpoint;
 		DBGKD_GET_VERSION64 GetVersion64;
 		DBGKD_BREAKPOINTEX BreakPointEx;
-		DBGKD_READ_WRITE_MSR ReadWriteMsr;
+		DBGKD_READ_WRITE_MSR ReadWriteMsr;*/
 		DBGKD_SEARCH_MEMORY SearchMemory;
-		DBGKD_GET_SET_BUS_DATA GetSetBusData;
+		/*DBGKD_GET_SET_BUS_DATA GetSetBusData;
 		DBGKD_FILL_MEMORY FillMemory;*/
 		DBGKD_QUERY_MEMORY QueryMemory;
 		/*DBGKD_SWITCH_PARTITION SwitchPartition;*/
@@ -334,10 +457,15 @@ typedef struct kd_packet_t{
 		UINT32 ApiNumber;
 		DBGKD_MANIPULATE_STATE64 ManipulateState64;
 		DBGKD_WAIT_STATE_CHANGE64 StateChange;
-
 		UINT8 data[0];
 	};
 }kd_packet_t;
+
+typedef struct _KDESCRIPTOR{
+	uint16_t Pad[3];
+	uint16_t Limit;
+	uint64_t Base;
+}KDESCRIPTOR;
 
 typedef struct _KSPECIAL_REGISTERS64
 {
@@ -351,9 +479,25 @@ typedef struct _KSPECIAL_REGISTERS64
 	uint64_t KernelDr3;
 	uint64_t KernelDr6;
 	uint64_t KernelDr7;
-	//TODO: finish it !
+	_KDESCRIPTOR Gdtr;
+	_KDESCRIPTOR Idtr;
+	uint16_t Tr;
+	uint16_t Ldtr;
+	uint32_t MxCsr;
+	uint64_t DebugControl;
+	uint64_t LastBranchToRip;
+	uint64_t LastBranchFromRip;
+	uint64_t LastExceptionToRip;
+	uint64_t LastExceptionFromRip;
+	uint64_t Cr8;
+	uint64_t MsrGsBase;
+	uint64_t MsrGsSwap;
+	uint64_t MsrStar;
+	uint64_t MsrLStar;
+	uint64_t MsrCStar;
+	uint64_t MsrSyscallMask;
+	uint64_t Xcr0;
 } KSPECIAL_REGISTERS64, *P_KSPECIAL_REGISTERS64;
-
 #pragma pack(pop)
 
 enum{
@@ -364,6 +508,7 @@ enum{
 
 //functions
 uint32_t ChecksumKD(kd_packet_t *pkt);
+BOOL sendKDPkt(HANDLE hPipe, kd_packet_t* toSendKDPkt);
 DWORD WriteKDPipe(HANDLE hPipe, kd_packet_t *pkt);
 int ReadKDPipe(HANDLE hPipe, kd_packet_t *pktBuffer);
 bool ParseKDPkt(kd_packet_t* pkt);

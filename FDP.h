@@ -11,6 +11,7 @@ enum{
 	SEARCH_MEMORY,
 	CLEAR_BP,
 	SET_BP,
+	VIRTUAL_PHYSICAL,
 };
 
 enum{
@@ -55,3 +56,6 @@ uint64_t FDP_searchMemory(uint8_t *patternData, uint64_t patternSize, uint64_t s
 
 bool FDP_clearBP(uint8_t breakPointId, HANDLE toVMPipe);
 bool FDP_setBP(uint8_t breakPointId, uint64_t breakAddress, HANDLE toVMPipe);
+
+uint64_t FDP_physical_virtual(uint64_t physical_addr, HANDLE toVMPipe);
+uint64_t FDP_virtual_physical(uint64_t virtual_addr, HANDLE toVMPipe);

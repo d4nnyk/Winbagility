@@ -11,6 +11,9 @@
 #include "utils.h"
 #include "kdserver.h"
 
+//TODO: configuration file
+uint8_t DEBUG_PKT = 0;
+
 uint32_t ChecksumKD(kd_packet_t *pkt){
 	uint32_t checksum = 0;
 	for (int i = 0; i<pkt->length; i++){
@@ -19,6 +22,16 @@ uint32_t ChecksumKD(kd_packet_t *pkt){
 	return checksum;
 }
 
+
+BOOL sendKDPkt(HANDLE hPipe, kd_packet_t* toSendKDPkt){
+	//Compute checksum before sending pkt
+	toSendKDPkt->checksum = ChecksumKD(toSendKDPkt);
+	DWORD numBytesWritten = WriteKDPipe(hPipe, toSendKDPkt);
+	if (DEBUG_PKT){
+		ParseKDPkt(toSendKDPkt);
+	}
+	return true;
+}
 
 int ReadKDPipe(HANDLE hPipe, kd_packet_t *pktBuffer){
 	DWORD numBytesRead = 0;
@@ -46,8 +59,8 @@ int ReadKDPipe(HANDLE hPipe, kd_packet_t *pktBuffer){
 		pktBuffer->checksum = checksum;
 
 		//TODO: function !
-		UINT16 bytesToRead = length;
-		UINT16 bytesAlreadyRead = 0;
+		uint32_t bytesToRead = length;
+		uint32_t bytesAlreadyRead = 0;
 		while (bytesToRead > 0){
 			//printf("bytesToRead %d\n", bytesToRead);
 			result = ReadFile(hPipe, pktBuffer->data + bytesAlreadyRead, bytesToRead, &numBytesRead, NULL);
@@ -61,7 +74,9 @@ int ReadKDPipe(HANDLE hPipe, kd_packet_t *pktBuffer){
 			char endOfData;
 			ReadFile(hPipe, &endOfData, 1, NULL, NULL);
 		}
-
+		if (DEBUG_PKT){
+			ParseKDPkt(pktBuffer);
+		}
 		return KD_PKT;
 	}else{
 		UINT16 type = Get16Pipe(hPipe);
@@ -69,16 +84,17 @@ int ReadKDPipe(HANDLE hPipe, kd_packet_t *pktBuffer){
 		printf("type: %04x\n", type);
 		//system("pause");
 	}
+
 	return ERR_PKT;
 }
 
 DWORD WriteKDPipe(HANDLE hPipe, kd_packet_t *pkt){
 	DWORD numBytesWritten = 0;
 	BOOL result = WriteFile(hPipe, pkt, pkt->length + 16, &numBytesWritten, NULL);
+	char endOfData = 0xAA;
 
 	//END_OF_DATA
 	if (pkt->length > 0){
-		char endOfData = 0xAA;
 		WriteFile(hPipe, &endOfData, 1, NULL, NULL);
 	}
 
@@ -163,7 +179,29 @@ bool ParseKDPkt(kd_packet_t* pkt){
 			//printf("\tUnknown2 %p\n", pkt->ManipulateState64.ReadMemory.Unknown2);
 			//printf("\tUnknown3 %p\n", pkt->ManipulateState64.ReadMemory.Unknown3);
 			if (pkt->length > 56){
-				printHexData((char*)pkt->ManipulateState64.ReadMemory.Data, pkt->ManipulateState64.ReadMemory.TransferCount);
+				//printHexData((char*)pkt->ManipulateState64.ReadMemory.Data, pkt->ManipulateState64.ReadMemory.TransferCount);
+				switch (pkt->ManipulateState64.ReadMemory.TargetBaseAddress){
+				case 0: //@v_KPCR
+					break;
+				case 1: //@v_KPRCB
+					break;
+				case 2:{ //@SpecialRegisters
+					KSPECIAL_REGISTERS64 *tmpSpecialRegisters = (KSPECIAL_REGISTERS64*)pkt->ManipulateState64.WriteMemory.Data;
+					printf("\tKernelDr0 : 0x%p\n", tmpSpecialRegisters->KernelDr0);
+					printf("\tKernelDr1 : 0x%p\n", tmpSpecialRegisters->KernelDr1);
+					printf("\tKernelDr2 : 0x%p\n", tmpSpecialRegisters->KernelDr2);
+					printf("\tKernelDr3 : 0x%p\n", tmpSpecialRegisters->KernelDr3);
+					printf("\tKernelDr6 : 0x%p\n", tmpSpecialRegisters->KernelDr6);
+					printf("\tKernelDr7 : 0x%p\n", tmpSpecialRegisters->KernelDr7);
+					printf("\tGdtr.Limit : 0x%04x\n", tmpSpecialRegisters->Gdtr.Limit);
+					printf("\tGdtr.Base : 0x%p\n", tmpSpecialRegisters->Gdtr.Base);
+					break;
+				}
+				case 3: //@v_KTHREAD
+					break;
+				default:
+					break;
+				};
 			}
 			break;
 		case DbgKdWriteControlSpaceApi:
@@ -311,6 +349,16 @@ bool ParseKDPkt(kd_packet_t* pkt){
 			printf("\tReserved 0x%p\n", pkt->ManipulateState64.QueryMemory.Reserved);
 			printf("\tAddressSpace 0x%08X\n", pkt->ManipulateState64.QueryMemory.AddressSpace);
 			printf("\tFlags 0x%08X\n", pkt->ManipulateState64.QueryMemory.Flags);
+			break;
+		case DbgKdSearchMemoryApi:
+			printf("\t[DbgKdSearchMemoryApi]\n");
+			printf("\tSearchAddress 0x%p\n", pkt->ManipulateState64.SearchMemory.SearchAddress);
+			printf("\tSearchLength 0x%p\n", pkt->ManipulateState64.SearchMemory.SearchLength);
+			printf("\tPatternLength 0x%08x\n", pkt->ManipulateState64.SearchMemory.PatternLength);
+			if (pkt->length > 56){
+				printf("\tData :\n");
+				printHexData((char*)pkt->ManipulateState64.SearchMemory.Data, pkt->ManipulateState64.SearchMemory.PatternLength);
+			}
 			break;
 		default: //Stop ALL !
 			printf("\t[UNKNOWN]\n");

@@ -14,21 +14,14 @@
 #include "dissectors.h"
 #include "FDP.h"
 
+#define STATUS_SUCCESS		0x000000000
+#define STATUS_UNSUCCESSFUL	0xC0000001L
 
 //Windbg->Proxy
 HANDLE DBGPipe; 
 UINT8 serverRunning;
 analysisContext_t *curContext; //TODO: remove this !
 
-
-
-BOOL sendKDPkt(kd_packet_t* toSendKDPkt){
-	toSendKDPkt->checksum = ChecksumKD(toSendKDPkt);
-	//ParseKDPkt(toSendKDPkt);
-	DWORD numBytesWritten = WriteKDPipe(DBGPipe, toSendKDPkt);
-	printf("[FAKEVM->Windbg] Write to Windbg : %d\n", numBytesWritten);
-	return true;
-}
 
 
 bool WDBG_clearBP(uint8_t breakPointId, analysisContext_t *context){
@@ -50,22 +43,32 @@ uint64_t WDBG_getRegister(analysisContext_t *context, uint8_t registerId ){
 		return FDP_readRegister(context->toVMPipe, registerId);
 	}
 
-	if (registerId == RIP_REGISTER){
+	//Physical Memory Dump... TODO: get info from memory...
+	switch (registerId){
+	case RIP_REGISTER:
 		return context->v_DbgBreakPointWithStatus;
+	case CS_REGISTER:
+		return 0x0010;
+	case DS_REGISTER:
+		return 0x002b;
+	case ES_REGISTER:
+		return 0x002b;
+	case FS_REGISTER:
+		return 0x0053;
 	}
 	return 0;
 }
 
 bool WDBG_resume(analysisContext_t *context){
 	if (context->curMode == STOCK_VBOX_TYPE){
-		return FDP_resume(context->toVMPipe);
+		return (FDP_resume(context->toVMPipe) == 1);
 	}
 	return true;
 }
 
 bool WDBG_pause(analysisContext_t *context){
 	if (context->curMode == STOCK_VBOX_TYPE){
-		return FDP_pause(context->toVMPipe);
+		return (FDP_pause(context->toVMPipe) == 1);
 	}
 	return true;
 }
@@ -97,8 +100,8 @@ BOOL handleBreakPkt(){
 	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionAddress = 0x0000000045158890;
 	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.NumberParameters = 0x00000001;
 	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.u1 = 0xffff4e51;
-	tmpKDRespPkt->StateChange.Exception.FirstChance = 0x00000001;
-	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionInformation[0] = 0x0000000000000000;
+	tmpKDRespPkt->StateChange.Exception.FirstChance = 0x00000001;*/
+	/*tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionInformation[0] = 0x0000000000000000;
 	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionInformation[1] = 0x000000004579b500;
 	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionInformation[2] = 0x0000000046abfd98;
 	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionInformation[3] = 0x0000000000000001;
@@ -114,28 +117,19 @@ BOOL handleBreakPkt(){
 	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionInformation[13] = 0x0000000000000001;
 	tmpKDRespPkt->StateChange.Exception.ExceptionRecord.ExceptionInformation[14] = 0x000000004503d8ee;*/
 
-	//tmpKDRespPkt->StateChange.ControlReport.Dr6 = 0x00000000ffff0ff0;
 	tmpKDRespPkt->StateChange.ControlReport.Dr6 = WDBG_getRegister(curContext, DR6_REGISTER);
-	//tmpKDRespPkt->StateChange.ControlReport.Dr7 = 0x0000000000000400;
 	tmpKDRespPkt->StateChange.ControlReport.Dr7 = WDBG_getRegister(curContext, DR7_REGISTER);
-	//tmpKDRespPkt->StateChange.ControlReport.EFlags = 0x00000286;
-	tmpKDRespPkt->StateChange.ControlReport.EFlags = WDBG_getRegister(curContext, RFLAGS_REGISTER);
-	tmpKDRespPkt->StateChange.ControlReport.InstructionCount = 0x0010;
-	for (int i = 0; i < tmpKDRespPkt->StateChange.ControlReport.InstructionCount; i++){
-		tmpKDRespPkt->StateChange.ControlReport.InstructionStream[i] = readPhysical8(curContext->p_curRIP + i, curContext);
-	}
+	tmpKDRespPkt->StateChange.ControlReport.EFlags = (ULONG)WDBG_getRegister(curContext, RFLAGS_REGISTER);
+	tmpKDRespPkt->StateChange.ControlReport.InstructionCount = DBGKD_MAXSTREAM;
+	readMMU(tmpKDRespPkt->StateChange.ControlReport.InstructionStream, tmpKDRespPkt->StateChange.ControlReport.InstructionCount, WDBG_getRegister(curContext, RIP_REGISTER), curContext);
 	tmpKDRespPkt->StateChange.ControlReport.ReportFlags = 0x0003;
-	/*tmpKDRespPkt->StateChange.ControlReport.SegCs = 0x0010;
-	tmpKDRespPkt->StateChange.ControlReport.SegDs = 0x002b;
-	tmpKDRespPkt->StateChange.ControlReport.SegEs = 0x002b;
-	tmpKDRespPkt->StateChange.ControlReport.SegFs = 0x0053;*/
-	tmpKDRespPkt->StateChange.ControlReport.SegCs = WDBG_getRegister(curContext, CS_REGISTER);
-	tmpKDRespPkt->StateChange.ControlReport.SegDs = WDBG_getRegister(curContext, DS_REGISTER);
-	tmpKDRespPkt->StateChange.ControlReport.SegEs = WDBG_getRegister(curContext, ES_REGISTER);
-	tmpKDRespPkt->StateChange.ControlReport.SegFs = WDBG_getRegister(curContext, FS_REGISTER);
 
+	tmpKDRespPkt->StateChange.ControlReport.SegCs = (uint16_t)WDBG_getRegister(curContext, CS_REGISTER);
+	tmpKDRespPkt->StateChange.ControlReport.SegDs = (uint16_t)WDBG_getRegister(curContext, DS_REGISTER);
+	tmpKDRespPkt->StateChange.ControlReport.SegEs = (uint16_t)WDBG_getRegister(curContext, ES_REGISTER);
+	tmpKDRespPkt->StateChange.ControlReport.SegFs = (uint16_t)WDBG_getRegister(curContext, FS_REGISTER);
 
-	sendKDPkt(tmpKDRespPkt);
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
 	return true;
 }
 
@@ -151,7 +145,7 @@ BOOL handleResetPkt(){
 	tmpKDRespPkt->id = 0xfd772d60;
 	tmpKDRespPkt->checksum = ChecksumKD(tmpKDRespPkt);
 
-	sendKDPkt(tmpKDRespPkt);
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
 	return true;
 }
 
@@ -160,13 +154,12 @@ BOOL ackKDPkt(kd_packet_t *tmpKDPkt){
 	memset(tmpBuffer, 0, 65 * 1024);
 	kd_packet_t *tmpKDRespPkt = (kd_packet_t*)tmpBuffer;
 
-	//TODO: ACK Function!
 	tmpKDRespPkt->leader = KD_CONTROL_PACKET;
 	tmpKDRespPkt->type = KD_PACKET_TYPE_ACK;
 	tmpKDRespPkt->length = 0x00;
 	tmpKDRespPkt->id = tmpKDPkt->id;
 
-	sendKDPkt(tmpKDRespPkt);
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
 	return true;
 }
 BOOL handleDbgKdGetVersionApiPkt(kd_packet_t *tmpKDPkt){
@@ -198,7 +191,7 @@ BOOL handleDbgKdGetVersionApiPkt(kd_packet_t *tmpKDPkt){
 	//tmpKDRespPkt->ManipulateState64.GetVersion.Unknown2 = 0x00000000FDFDFDFD;
 	//tmpKDRespPkt->ManipulateState64.GetVersion.Unknown3 = 0x0000000000000000;
 
-	sendKDPkt(tmpKDRespPkt);
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
 
 	return true;
 }
@@ -228,7 +221,33 @@ BOOL handleDbgKdReadVirtualMemoryApiPkt(kd_packet_t *tmpKDPkt){
 	}else{
 		readMMU(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount, tmpKDPkt->ManipulateState64.ReadMemory.TargetBaseAddress, curContext);
 	}
-	sendKDPkt(tmpKDRespPkt);
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
+
+	return true;
+}
+
+BOOL handleDbgKdReadPhysicalMemoryApiPkt(kd_packet_t *tmpKDPkt){
+	char tmpBuffer[65 * 1024];
+	memset(tmpBuffer, 0, 65 * 1024);
+	kd_packet_t *tmpKDRespPkt = (kd_packet_t*)tmpBuffer;
+
+	tmpKDRespPkt->leader = KD_DATA_PACKET;
+	tmpKDRespPkt->type = KD_PACKET_TYPE_MANIP;
+	tmpKDRespPkt->length = 56 + tmpKDPkt->ManipulateState64.ReadMemory.TransferCount;
+	tmpKDRespPkt->id = tmpKDPkt->id ^ 0x1;
+	tmpKDRespPkt->ManipulateState64.ApiNumber = DbgKdReadPhysicalMemoryApi;
+	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
+	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
+	tmpKDRespPkt->ManipulateState64.ReadMemory.TargetBaseAddress = tmpKDPkt->ManipulateState64.ReadMemory.TargetBaseAddress;
+	tmpKDRespPkt->ManipulateState64.ReadMemory.TransferCount = tmpKDPkt->ManipulateState64.ReadMemory.TransferCount;
+	tmpKDRespPkt->ManipulateState64.ReadMemory.ActualBytesRead = tmpKDPkt->ManipulateState64.ReadMemory.TransferCount;
+
+	//TODO: p_KDBG ???
+	bool result = readPhysical(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount, tmpKDPkt->ManipulateState64.ReadMemory.TargetBaseAddress, curContext);
+	if (result == false){
+		tmpKDRespPkt->ManipulateState64.ReturnStatus = STATUS_UNSUCCESSFUL;
+	}
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
 
 	return true;
 }
@@ -240,7 +259,7 @@ BOOL handleDbgKdReadControlSpaceApi(kd_packet_t *tmpKDPkt){
 
 	tmpKDRespPkt->leader = KD_DATA_PACKET;
 	tmpKDRespPkt->type = KD_PACKET_TYPE_MANIP;
-	tmpKDRespPkt->length = 56 + 8;
+	tmpKDRespPkt->length = 56 + tmpKDPkt->ManipulateState64.ReadMemory.TransferCount;
 	tmpKDRespPkt->id = tmpKDPkt->id ^ 0x1;
 	tmpKDRespPkt->ManipulateState64.ApiNumber = DbgKdReadControlSpaceApi;
 	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
@@ -257,6 +276,9 @@ BOOL handleDbgKdReadControlSpaceApi(kd_packet_t *tmpKDPkt){
 		memcpy(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, &curContext->v_KPRCB, 8);
 		break;
 	case 2: //SpecialRegisters
+		//TODO: 
+		//KSPECIAL_REGISTERS64 tmpSpecialRegister;
+		//memcpy(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, &tmpSpecialRegister, sizeof(KSPECIAL_REGISTERS64));
 		readPhysical(tmpKDRespPkt->ManipulateState64.ReadMemory.Data, tmpKDPkt->ManipulateState64.ReadMemory.TransferCount, curContext->p_KPRCB + 0x40 + 0x00, curContext);
 		break;
 	case 3: //v_KTHREAD
@@ -268,7 +290,7 @@ BOOL handleDbgKdReadControlSpaceApi(kd_packet_t *tmpKDPkt){
 		system("pause");
 	}
 
-	sendKDPkt(tmpKDRespPkt);
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
 	return true;
 }
 
@@ -287,7 +309,7 @@ BOOL handleDbgKdRestoreBreakPointApi(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
 	tmpKDRespPkt->ManipulateState64.RestoreBreakPoint.BreakPointHandle = tmpKDPkt->ManipulateState64.RestoreBreakPoint.BreakPointHandle;
 
-	sendKDPkt(tmpKDRespPkt);
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
 
 	return true;
 }
@@ -304,7 +326,12 @@ BOOL handleDbgKdGetRegister(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->ManipulateState64.ApiNumber = DbgKdGetRegister;
 	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
 	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
-	tmpKDRespPkt->ManipulateState64.ReturnStatus = 0xC0000001; //XXX: test
+
+	//XXX:
+	//tmpKDRespPkt->ManipulateState64.ReturnStatus = 0xC0000001; //TODO: fail
+	//tmpKDRespPkt->length = 56;
+	//XXX:
+
 	//TODO: What those values are ?
 	tmpKDRespPkt->ManipulateState64.GetRegisters.u[0] = tmpKDPkt->ManipulateState64.GetRegisters.u[0];
 	tmpKDRespPkt->ManipulateState64.GetRegisters.u[1] = tmpKDPkt->ManipulateState64.GetRegisters.u[1] + 0x4D0;
@@ -320,12 +347,12 @@ BOOL handleDbgKdGetRegister(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->ManipulateState64.GetRegisters.u[10] = 0x0000000000000000;
 	tmpKDRespPkt->ManipulateState64.GetRegisters.u[11] = 0x00001F800010001F;
 
-	tmpKDRespPkt->ManipulateState64.GetRegisters.SegCs = WDBG_getRegister(curContext, CS_REGISTER);
-	tmpKDRespPkt->ManipulateState64.GetRegisters.SegDs = WDBG_getRegister(curContext, DS_REGISTER);
-	tmpKDRespPkt->ManipulateState64.GetRegisters.SegEs = WDBG_getRegister(curContext, ES_REGISTER);
-	tmpKDRespPkt->ManipulateState64.GetRegisters.SegFs = WDBG_getRegister(curContext, FS_REGISTER);
-	tmpKDRespPkt->ManipulateState64.GetRegisters.SegGs = WDBG_getRegister(curContext, GS_REGISTER);
-	tmpKDRespPkt->ManipulateState64.GetRegisters.SegSs = WDBG_getRegister(curContext, SS_REGISTER);
+	tmpKDRespPkt->ManipulateState64.GetRegisters.SegCs = (uint16_t)WDBG_getRegister(curContext, CS_REGISTER);
+	tmpKDRespPkt->ManipulateState64.GetRegisters.SegDs = (uint16_t)WDBG_getRegister(curContext, DS_REGISTER);
+	tmpKDRespPkt->ManipulateState64.GetRegisters.SegEs = (uint16_t)WDBG_getRegister(curContext, ES_REGISTER);
+	tmpKDRespPkt->ManipulateState64.GetRegisters.SegFs = (uint16_t)WDBG_getRegister(curContext, FS_REGISTER);
+	tmpKDRespPkt->ManipulateState64.GetRegisters.SegGs = (uint16_t)WDBG_getRegister(curContext, GS_REGISTER);
+	tmpKDRespPkt->ManipulateState64.GetRegisters.SegSs = (uint16_t)WDBG_getRegister(curContext, SS_REGISTER);
 	tmpKDRespPkt->ManipulateState64.GetRegisters.Rip = WDBG_getRegister(curContext, RIP_REGISTER);
 	tmpKDRespPkt->ManipulateState64.GetRegisters.Rbp = WDBG_getRegister(curContext, RBP_REGISTER);
 	tmpKDRespPkt->ManipulateState64.GetRegisters.Rsp = WDBG_getRegister(curContext, RSP_REGISTER);
@@ -345,7 +372,7 @@ BOOL handleDbgKdGetRegister(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->ManipulateState64.GetRegisters.R14 = WDBG_getRegister(curContext, R14_REGISTER);
 	tmpKDRespPkt->ManipulateState64.GetRegisters.R15 = WDBG_getRegister(curContext, R15_REGISTER);
 
-	tmpKDRespPkt->ManipulateState64.GetRegisters.EFlags = WDBG_getRegister(curContext, RFLAGS_REGISTER);
+	tmpKDRespPkt->ManipulateState64.GetRegisters.EFlags = (uint32_t)WDBG_getRegister(curContext, RFLAGS_REGISTER);
 
 	tmpKDRespPkt->ManipulateState64.GetRegisters.Dr0 = WDBG_getRegister(curContext, DR0_REGISTER);
 	tmpKDRespPkt->ManipulateState64.GetRegisters.Dr1 = WDBG_getRegister(curContext, DR1_REGISTER);
@@ -354,7 +381,7 @@ BOOL handleDbgKdGetRegister(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->ManipulateState64.GetRegisters.Dr6 = WDBG_getRegister(curContext, DR6_REGISTER);
 	tmpKDRespPkt->ManipulateState64.GetRegisters.Dr7 = WDBG_getRegister(curContext, DR7_REGISTER);
 
-	//Works without this... //TODO: !
+	//XMM... //Works without this... //TODO: !
 	/*tmpKDRespPkt->ManipulateState64.GetRegisters.DATA[0] = 0x0000000000000000;
 	tmpKDRespPkt->ManipulateState64.GetRegisters.DATA[1] = 0x0000000000000000;
 	tmpKDRespPkt->ManipulateState64.GetRegisters.DATA[2] = 0x0000000000000000;
@@ -478,7 +505,7 @@ BOOL handleDbgKdGetRegister(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->ManipulateState64.GetRegisters.DATA[120] = 0x0000000000000000;
 	tmpKDRespPkt->ManipulateState64.GetRegisters.DATA[121] = 0x0000000000000000;*/
 
-	sendKDPkt(tmpKDRespPkt);
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
 
 	return true;
 }
@@ -541,7 +568,7 @@ BOOL handleDbgKdSwitchProcessor(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->StateChange.ControlReport.SegEs = 0x002b;
 	tmpKDRespPkt->StateChange.ControlReport.SegFs = 0x0053;
 
-	sendKDPkt(tmpKDRespPkt);
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
 
 	return true;
 }
@@ -559,7 +586,8 @@ bool handleDbgKdSetContextApi(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
 	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
 
-	sendKDPkt(tmpKDRespPkt);
+
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
 	return true;
 }
 
@@ -622,7 +650,7 @@ bool handleDbgKdWriteControlSpaceApi(kd_packet_t *tmpKDPkt){
 		ParseKDPkt(tmpKDPkt);
 		system("pause");
 	}
-	sendKDPkt(tmpKDRespPkt);
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
 	return true;
 }
 
@@ -652,7 +680,7 @@ bool handleDbgKdContinueApi2(kd_packet_t *tmpKDPkt){
 
 	WDBG_resume(curContext);
 
-	sendKDPkt(tmpKDRespPkt);
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
 	return true;
 }
 
@@ -683,7 +711,7 @@ bool handleDbgKdQueryMemoryApi(kd_packet_t *tmpKDPkt){
 	tmpKDRespPkt->ManipulateState64.QueryMemory.AddressSpace = DBGKD_QUERY_MEMORY_KERNEL; //TODO: if K K else S
 	tmpKDRespPkt->ManipulateState64.QueryMemory.Flags = DBGKD_QUERY_MEMORY_READ | DBGKD_QUERY_MEMORY_WRITE | DBGKD_QUERY_MEMORY_EXECUTE; //TODO: get real rigths !
 
-	sendKDPkt(tmpKDRespPkt);
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
 	return true;
 }
 
@@ -696,15 +724,47 @@ bool handleDbgKdGetContextApi(kd_packet_t *tmpKDPkt){
 
 	tmpKDRespPkt->leader = KD_DATA_PACKET;
 	tmpKDRespPkt->type = KD_PACKET_TYPE_MANIP;
-	tmpKDRespPkt->length = 56;
+	tmpKDRespPkt->length = 56 + sizeof(CONTEXT64); //TODO: build specific !
 	tmpKDRespPkt->id = tmpKDPkt->id ^ 0x1;
 	tmpKDRespPkt->ManipulateState64.ApiNumber = DbgKdGetContextApi;
 	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
 	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
 
-	readPhysical(tmpKDRespPkt->ManipulateState64.data, 0x4c8, curContext->p_KPRCB + 0x40 + 0xe0, curContext);
+	tmpKDRespPkt->ManipulateState64.GetContext.Context.Rip = 0xdeadbeefdeadbeef;
 
-	sendKDPkt(tmpKDRespPkt);
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
+	return true;
+}
+
+bool handleDbgKdSearchMemoryApi(kd_packet_t *tmpKDPkt){
+	char tmpBuffer[65 * 1024];
+	memset(tmpBuffer, 0, 65 * 1024);
+	kd_packet_t *tmpKDRespPkt = (kd_packet_t*)tmpBuffer;
+
+	tmpKDRespPkt->leader = KD_DATA_PACKET;
+	tmpKDRespPkt->type = KD_PACKET_TYPE_MANIP;
+	tmpKDRespPkt->length = 56;
+	tmpKDRespPkt->id = tmpKDPkt->id ^ 0x1;
+	tmpKDRespPkt->ManipulateState64.ApiNumber = DbgKdSearchMemoryApi;
+	tmpKDRespPkt->ManipulateState64.Processor = tmpKDPkt->ManipulateState64.Processor;
+	tmpKDRespPkt->ManipulateState64.ProcessorLevel = tmpKDPkt->ManipulateState64.ProcessorLevel;
+	tmpKDRespPkt->ManipulateState64.ReturnStatus = STATUS_UNSUCCESSFUL;
+	//Effective Search
+	uint64_t foundAddr;
+	bool isFound = WDBG_searchVirtualMemory(tmpKDPkt->ManipulateState64.SearchMemory.Data,
+		tmpKDPkt->ManipulateState64.SearchMemory.PatternLength,
+		tmpKDPkt->ManipulateState64.SearchMemory.SearchAddress,
+		tmpKDPkt->ManipulateState64.SearchMemory.SearchLength, &foundAddr, curContext);
+
+	if (isFound){
+		tmpKDRespPkt->ManipulateState64.ReturnStatus = STATUS_SUCCESS;
+		tmpKDRespPkt->ManipulateState64.SearchMemory.FoundAddress = foundAddr;
+	}
+	tmpKDRespPkt->ManipulateState64.SearchMemory.FoundAddress = foundAddr;
+	tmpKDRespPkt->ManipulateState64.SearchMemory.SearchLength = tmpKDPkt->ManipulateState64.SearchMemory.SearchLength;
+	tmpKDRespPkt->ManipulateState64.SearchMemory.PatternLength = tmpKDPkt->ManipulateState64.SearchMemory.PatternLength;
+
+	sendKDPkt(DBGPipe, tmpKDRespPkt);
 	return true;
 }
 
@@ -716,11 +776,9 @@ DWORD WINAPI vmserver(LPVOID lpParam) {
 	printf("Starting Fake-VM KD Server\n");
 	while (serverRunning == 1){
 		int pktType = ReadKDPipe(DBGPipe, tmpKDPkt);
-
 		if (pktType == FASTBREAK_PKT){ //TODO: return fast-break !
 			handleBreakPkt();
 		}else{
-			ParseKDPkt(tmpKDPkt);
 			switch (tmpKDPkt->type)
 			{
 			case KD_PACKET_TYPE_ACK:
@@ -740,6 +798,10 @@ DWORD WINAPI vmserver(LPVOID lpParam) {
 				case DbgKdReadVirtualMemoryApi:
 					ackKDPkt(tmpKDPkt);
 					handleDbgKdReadVirtualMemoryApiPkt(tmpKDPkt);
+					break;
+				case DbgKdReadPhysicalMemoryApi:
+					ackKDPkt(tmpKDPkt);
+					handleDbgKdReadPhysicalMemoryApiPkt(tmpKDPkt);
 					break;
 				case DbgKdReadControlSpaceApi:
 					ackKDPkt(tmpKDPkt);
@@ -785,6 +847,11 @@ DWORD WINAPI vmserver(LPVOID lpParam) {
 					ackKDPkt(tmpKDPkt);
 					handleDbgKdGetContextApi(tmpKDPkt);
 					break;
+				case DbgKdSearchMemoryApi:
+					ackKDPkt(tmpKDPkt);
+					handleDbgKdSearchMemoryApi(tmpKDPkt);
+					break;
+
 				default:
 					printf("[DEBUG] Unknown ApiNumber %08x\n", tmpKDPkt->ApiNumber);
 					ParseKDPkt(tmpKDPkt);
@@ -855,28 +922,35 @@ bool initKDServer(analysisContext_t *context){
 			return false;
 		}
 	}
+
+	WDBG_pause(context);
 	if (initialeAnalysis(context) == false){
 		printf("Unable to initiale analysis !\n");
 		return false;
 	}
-	
+	WDBG_resume(context);
+
 	printf("KD Server Initialisation OK !\n");
 	//system("pause");
 	return true;
 }
 
 bool startKDServer(){
-	CreateNamedPipe(&DBGPipe, "\\\\.\\pipe\\client");
-
-	Sleep(1000);
 	serverRunning = 1;
-
-	CreateThread(NULL, 0, vmserver, NULL, 0, NULL);
-
+	HANDLE lastThread = NULL;
 	//TODO: watchdog...
-	while (1){
-		Sleep(1000);
+	while (serverRunning){
+		HANDLE tmpPipe;
+		//Wait for a new client
+		CreateNamedPipe(&tmpPipe, "\\\\.\\pipe\\client");
+		if (lastThread){
+			TerminateThread(lastThread, 128);
+			DisconnectNamedPipe(DBGPipe);
+		}
+		DBGPipe = tmpPipe; //TODO: find a better way to do this !
+		lastThread = CreateThread(NULL, 0, vmserver, NULL, 0, NULL);
 	}
+	return true;
 }
 
 void stopKDServer(){

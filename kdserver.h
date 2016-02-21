@@ -9,7 +9,7 @@
 #include <string.h>
 #include <Windows.h>
 
-#pragma pack()
+#pragma pack(push)
 struct _DBGKD_DEBUG_DATA_HEADER64 {
 	uint64_t List[2];
 	uint32_t OwnerTag;
@@ -169,6 +169,7 @@ typedef struct analysisContext_t{
 	const unsigned char* physicalMemory;
 	uint64_t physicalMemorySize;
 	uint64_t p_DirectoryTableBase;
+	uint64_t p_KiProcessBlock;
 	uint64_t p_KPCR;
 	uint64_t v_KPCR;
 	uint64_t p_KPRCB;

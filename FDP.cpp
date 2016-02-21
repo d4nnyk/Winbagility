@@ -6,16 +6,16 @@
 #include "utils.h"
 #include "FDP.h"
 
-typedef struct FDP_clearBP_req{
+typedef struct _FDP_clearBP_req{
 	uint8_t cmdType;
 	uint8_t breakPointId;
-};
+}FDP_clearBP_req;
 
-typedef struct FDP_setBP_req{
+typedef struct _FDP_setBP_req{
 	uint8_t cmdType;
 	uint8_t breakPointId;
 	uint64_t breakAddress;
-};
+}FDP_setBP_req;
 
 bool FDP_clearBP(uint8_t breakPointId, HANDLE toVMPipe){
 	FDP_clearBP_req tmpReq;
@@ -23,7 +23,7 @@ bool FDP_clearBP(uint8_t breakPointId, HANDLE toVMPipe){
 	tmpReq.breakPointId = breakPointId;
 	PutPipe(toVMPipe, (uint8_t*)&tmpReq, sizeof(tmpReq));
 	FlushFileBuffers(toVMPipe);
-	return Get8Pipe(toVMPipe);
+	return (Get8Pipe(toVMPipe) ==  1);
 }
 
 bool FDP_setBP(uint8_t breakPointId, uint64_t breakAddress, HANDLE toVMPipe){
@@ -33,7 +33,7 @@ bool FDP_setBP(uint8_t breakPointId, uint64_t breakAddress, HANDLE toVMPipe){
 	tmpReq.breakAddress = breakAddress;
 	PutPipe(toVMPipe, (uint8_t*)&tmpReq, sizeof(tmpReq));
 	FlushFileBuffers(toVMPipe);
-	return Get8Pipe(toVMPipe);
+	return (Get8Pipe(toVMPipe) == 1);
 }
 
 uint8_t FDP_pause(HANDLE toVMPipe){
@@ -51,11 +51,6 @@ uint8_t FDP_resume(HANDLE toVMPipe){
 }
 
 uint64_t FDP_readRegister(HANDLE toVMPipe, uint8_t registerId){
-	//XXX: Trick to make "Go" command working
-	//TODO: Find how to pass GDT to Windbg !
-	if (registerId == CS_REGISTER){
-		return 0;
-	}
 	Put8Pipe(toVMPipe, READ_REGISTER_64);
 	Put8Pipe(toVMPipe, registerId);
 	FlushFileBuffers(toVMPipe);
@@ -72,4 +67,22 @@ uint64_t FDP_searchMemory(uint8_t *patternData, uint64_t patternSize, uint64_t s
 	Put64Pipe(toVMPipe, startOffset);
 
 	return Get64Pipe(toVMPipe);
+}
+
+//Get potential virtual address from physical one.
+uint64_t FDP_physical_virtual(uint64_t physical_addr, HANDLE toVMPipe){
+	Put8Pipe(toVMPipe, PHYSICAL_VIRTUAL);
+	Put64Pipe(toVMPipe, physical_addr);
+	FlushFileBuffers(toVMPipe);
+	uint64_t result = Get64Pipe(toVMPipe);
+	return result;
+}
+
+//Get physical address from virtual one.
+uint64_t FDP_virtual_physical(uint64_t virtual_addr, HANDLE toVMPipe){
+	Put8Pipe(toVMPipe, VIRTUAL_PHYSICAL);
+	Put64Pipe(toVMPipe, virtual_addr);
+	FlushFileBuffers(toVMPipe);
+	uint64_t result = Get64Pipe(toVMPipe);
+	return result;
 }
